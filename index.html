@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Game Collection</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background: #0f1117;
+      color: #e6e8ee;
+      min-height: 100vh;
+    }
+    .page { max-width: 1200px; margin: 0 auto; padding: 40px 24px 60px; }
+    h1 { font-size: 26px; margin-bottom: 8px; }
+    .sub { color: #8a90a0; margin-bottom: 32px; }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+      gap: 20px;
+    }
+    .card {
+      display: block;
+      position: relative;
+      border-radius: 14px;
+      overflow: hidden;
+      background: #171a23;
+      border: 1px solid #262a36;
+      text-decoration: none;
+      color: inherit;
+      transition: transform .18s ease, border-color .18s ease, box-shadow .18s ease;
+    }
+    .card:hover {
+      transform: translateY(-4px);
+      border-color: #4a7cff;
+      box-shadow: 0 12px 30px rgba(74, 124, 255, .18);
+    }
+    .thumb {
+      position: relative;
+      aspect-ratio: 16 / 9;
+      background: #1c202b;
+    }
+    .thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .badge {
+      position: absolute;
+      top: 10px; right: 10px;
+      background: rgba(0, 0, 0, .6);
+      color: #aee3ff;
+      font-size: 11px;
+      padding: 3px 8px;
+      border-radius: 6px;
+      letter-spacing: .5px;
+    }
+    .meta { padding: 14px 16px 16px; }
+    .meta .name { font-size: 16px; font-weight: 600; margin-bottom: 4px; }
+    .meta .desc { font-size: 13px; color: #8a90a0; }
+
+    .empty {
+      grid-column: 1 / -1;
+      text-align: center;
+      color: #8a90a0;
+      padding: 60px 0;
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <h1>Game Collection</h1>
+    <div class="sub">Click a card to play</div>
+
+    <div class="grid" id="grid"></div>
+  </div>
+
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>

@@ -1,0 +1,46 @@
+{
+  "_comment": "Python data types. Load it with: index.html?deckUrl=./deck.datatypes.json — each category carries a LIST of values, so a parcel shows a random one and you cannot just memorise a single label per bin. The delimiters are the whole lesson: 42 is an int, \"42\" is a str, 2 is an int but 2.0 is a float.",
+
+  "id": "datatypes",
+  "title": "Python Data Types",
+  "tagline": "Sort each value by its Python type",
+  "name": "Python Data Types",
+  "desc": "Send each value to its type",
+
+  "categories": [
+    {
+      "bin": "int",
+      "items": ["42", "7", "-3", "100", "0"]
+    },
+    {
+      "bin": "str",
+      "items": ["\"hi\"", "'py'", "\"42\"", "'a'"]
+    },
+    {
+      "bin": "bool",
+      "items": ["True", "False"]
+    },
+    {
+      "bin": "float",
+      "items": ["3.14", "-0.5", "2.0", "9.99", "0.25"]
+    }
+  ],
+
+  "_comment_titles": "Optional per-level overrides — without these you would see the shared layouts' geometry-flavoured titles.",
+
+  "levelTitles": [
+    "Level 1 · int or str",
+    "Level 2 · Add bool",
+    "Level 3 · Three Types",
+    "Level 4 · All Four Types",
+    "Level 5 · All Four Types"
+  ],
+
+  "levelHints": [
+    "The quotes decide it: 42 is an int, \"42\" is a str.",
+    "bool joins in — True and False are their own type, capital first letter.",
+    "Three types on a new belt shape. Watch the quotes and the capital letter.",
+    "All four types at once. A dot makes it a float: 2 is an int, 2.0 is a float.",
+    "All four types again on a different belt — same rules, faster reading."
+  ]
+}

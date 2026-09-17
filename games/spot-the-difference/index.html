@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title data-i18n="ui.appTitle">Python Syntax Spot</title>
+<link rel="stylesheet" href="./assets/style.css">
+</head>
+<body>
+<header class="bar">
+  <span class="brand" data-i18n="ui.appTitle">Python Syntax Spot</span>
+  <span class="progress" id="progress"></span>
+  <span class="spacer"></span>
+  <span id="lang"></span>
+  <button class="btn" id="btnReset" data-i18n="ui.reset">Reset progress</button>
+</header>
+
+<main>
+  <p class="lead" id="lead"></p>
+  <div class="levels" id="levels"></div>
+  <div class="err" id="err" hidden></div>
+</main>
+
+<script type="module" src="./assets/select.js"></script>
+</body>
+</html>

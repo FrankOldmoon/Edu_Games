@@ -1,0 +1,354 @@
+{
+  "timer": {
+    "base": 0,
+    "perDiff": 10,
+    "penalty": 5
+  },
+  "levels": [
+    {
+      "id": "l01",
+      "left": "x = 5\ny = 3\nprint(x + y)",
+      "right": "x = 5\ny == 3\nprint(x + y)",
+      "diffs": [
+        {
+          "panel": "right",
+          "line": 2,
+          "find": "=="
+        }
+      ]
+    },
+    {
+      "id": "l02",
+      "left": "name = \"Alice\"\nage = 18\nprint(\"Hi\", name)\nprint(age)",
+      "right": "name = \"alice\"\nage = 18\nprint(Hi, name)\nprint(age)",
+      "diffs": [
+        {
+          "panel": "right",
+          "line": 1,
+          "find": "\"alice\""
+        },
+        {
+          "panel": "right",
+          "line": 3,
+          "find": "Hi"
+        }
+      ]
+    },
+    {
+      "id": "l03",
+      "left": "age = int(input(\"age: \"))\nname = input(\"name: \")\nnext_age = age + 1\nprint(\"Hello,\", name)\nprint(\"next year:\", next_age)",
+      "right": "age = input(\"age: \")\nname = input(\"name: \")\nnext_age = age + 1\nprint(\"Hello,\", nam)\nprint(\"next year:\", next_Age)",
+      "diffs": [
+        {
+          "panel": "right",
+          "line": 1,
+          "find": "input(\"age: \")"
+        },
+        {
+          "panel": "right",
+          "line": 4,
+          "find": "nam"
+        },
+        {
+          "panel": "right",
+          "line": 5,
+          "find": "next_Age"
+        }
+      ]
+    },
+    {
+      "id": "l04",
+      "left": "a = 17\nb = 5\ns = a + b\nd = a // b\nr = a % b\nprint(s, d, r)",
+      "right": "a = 17\nb = 5\ns = a - b\nd = a / b\nr = a ** b\nprint(s, d)",
+      "diffs": [
+        {
+          "panel": "right",
+          "line": 3,
+          "find": "-"
+        },
+        {
+          "panel": "right",
+          "line": 4,
+          "find": "/"
+        },
+        {
+          "panel": "right",
+          "line": 5,
+          "find": "**"
+        },
+        {
+          "panel": "right",
+          "line": 6,
+          "at": "end"
+        }
+      ]
+    },
+    {
+      "id": "l05",
+      "left": "count = 3\nprice = 4.5\nname = \"box\"\ntotal = count * price\nprint(type(count))\nprint(type(price))\nprint(name)",
+      "right": "count = \"3\"\nprice = 4\nname = box\ntotal = count + price\nprint(type(count))\nprint(type(price))\nprint(Name)",
+      "diffs": [
+        {
+          "panel": "right",
+          "line": 1,
+          "find": "\"3\""
+        },
+        {
+          "panel": "right",
+          "line": 2,
+          "find": "4"
+        },
+        {
+          "panel": "right",
+          "line": 3,
+          "find": "box"
+        },
+        {
+          "panel": "right",
+          "line": 4,
+          "find": "+"
+        },
+        {
+          "panel": "right",
+          "line": 7,
+          "find": "Name"
+        }
+      ]
+    },
+    {
+      "id": "l06",
+      "left": "a = 60\nb = 100\nprint(a >= 60)\nprint(a <= b)\nprint(a == 60)\nprint(a != 0)\nprint(a > b)\nprint(a < b)",
+      "right": "a = 60\nb = 100\nprint(a > 60)\nprint(a < b)\nprint(a = 60)\nprint(a == 0)\nprint(a >= b)\nprint(a <= b)",
+      "diffs": [
+        {
+          "panel": "right",
+          "line": 3,
+          "find": ">"
+        },
+        {
+          "panel": "right",
+          "line": 4,
+          "find": "<"
+        },
+        {
+          "panel": "right",
+          "line": 5,
+          "find": "="
+        },
+        {
+          "panel": "right",
+          "line": 6,
+          "find": "=="
+        },
+        {
+          "panel": "right",
+          "line": 7,
+          "find": ">="
+        },
+        {
+          "panel": "right",
+          "line": 8,
+          "find": "<="
+        }
+      ]
+    },
+    {
+      "id": "l07",
+      "left": "age = 20\nscore = 75\nname = \"Tom\"\nif age >= 18:\n    print(\"adult\")\nif score > 60:\n    print(\"pass\")\nif name == \"Tom\":\n    print(\"hi\")\nelse:\n    print(\"bye\")",
+      "right": "age = \"20\"\nscore = 75\nname = \"tom\"\nif age >= 18\n    print(\"adult\")\nif score > 60:\n    print(pass)\nif name = \"Tom\":\nprint(\"hi\")\nelse:\n    print(\"Bye\")",
+      "diffs": [
+        {
+          "panel": "right",
+          "line": 1,
+          "find": "\"20\""
+        },
+        {
+          "panel": "right",
+          "line": 3,
+          "find": "\"tom\""
+        },
+        {
+          "panel": "right",
+          "line": 4,
+          "at": "end"
+        },
+        {
+          "panel": "right",
+          "line": 7,
+          "find": "pass"
+        },
+        {
+          "panel": "right",
+          "line": 8,
+          "find": "="
+        },
+        {
+          "panel": "right",
+          "line": 9,
+          "at": "start"
+        },
+        {
+          "panel": "right",
+          "line": 11,
+          "find": "\"Bye\""
+        }
+      ]
+    },
+    {
+      "id": "l08",
+      "left": "n = 7\nm = 3\ntotal = 0\nif n % 2 == 0:\n    print(\"even\")\nelse:\n    print(\"odd\")\nif n > m:\n    print(\"bigger\")\nelse:\n    print(\"smaller\")\nprint(\"n =\", n)\nprint(\"done\")",
+      "right": "n = \"7\"\nm = 3.0\ntotal = 0\nif n % 2 = 0:\nprint(\"even\")\nelse:\n    print(\"Odd\")\nif n > m\n    print(bigger)\nelse:\n    print(\"Smaller\")\nprint(\"n =\", n)\nprint(\"Done\")",
+      "diffs": [
+        {
+          "panel": "right",
+          "line": 1,
+          "find": "\"7\""
+        },
+        {
+          "panel": "right",
+          "line": 2,
+          "find": "3.0"
+        },
+        {
+          "panel": "right",
+          "line": 4,
+          "find": "="
+        },
+        {
+          "panel": "right",
+          "line": 5,
+          "at": "start"
+        },
+        {
+          "panel": "right",
+          "line": 7,
+          "find": "\"Odd\""
+        },
+        {
+          "panel": "right",
+          "line": 8,
+          "at": "end"
+        },
+        {
+          "panel": "right",
+          "line": 9,
+          "find": "bigger"
+        },
+        {
+          "panel": "right",
+          "line": 11,
+          "find": "\"Smaller\""
+        }
+      ]
+    },
+    {
+      "id": "l09",
+      "left": "score = 75\nname = \"Amy\"\ngrade = \"\"\nif score >= 90:\n    grade = \"A\"\nelif score >= 80:\n    grade = \"B\"\nelif score >= 60:\n    grade = \"C\"\nelse:\n    grade = \"D\"\nprint(name)\nprint(\"score:\", score)\nprint(\"grade:\", grade)\nprint(\"bye\")",
+      "right": "score = \"75\"\nname = \"amy\"\nGrade = \"\"\nif score >= 90\n    grade = \"A\"\nelse score >= 80:\nprint(\"B\")\nelif score >= 60:\n    grade = \"c\"\nelse:\n    grade = \"D\"\nprint(Name)\nprint(\"score:\", Score)\nprint(\"grade:\", grad)\nprint(\"bye\")",
+      "diffs": [
+        {
+          "panel": "right",
+          "line": 1,
+          "find": "\"75\""
+        },
+        {
+          "panel": "right",
+          "line": 2,
+          "find": "\"amy\""
+        },
+        {
+          "panel": "right",
+          "line": 3,
+          "find": "Grade"
+        },
+        {
+          "panel": "right",
+          "line": 4,
+          "at": "end"
+        },
+        {
+          "panel": "right",
+          "line": 6,
+          "find": "else"
+        },
+        {
+          "panel": "right",
+          "line": 7,
+          "at": "start"
+        },
+        {
+          "panel": "right",
+          "line": 9,
+          "find": "\"c\""
+        },
+        {
+          "panel": "right",
+          "line": 12,
+          "find": "Name"
+        },
+        {
+          "panel": "right",
+          "line": 13,
+          "find": "Score"
+        }
+      ]
+    },
+    {
+      "id": "l10",
+      "left": "nums = [1, 2, 3]\ntotal = 0\ncount = 0\nfor n in nums:\n    total = total + n\n    count = count + 1\n    if n > 1:\n        print(n)\n    else:\n        print(0)\navg = total / count\nprint(\"total:\", total)\nprint(\"count:\", count)\nprint(\"avg:\", avg)\nif avg > 1:\n    print(\"ok\")\nprint(\"done\")",
+      "right": "nums = (1, 2, 3)\ntotal = \"0\"\ncount = 0\nfor n in nums\n    total = total - n\ncount = count + 1\n    if n = 1:\n        print(N)\n    else:\n        print(0)\navg = total // count\nprint(\"total:\", total)\nprint(\"count:\", count)\nprint(\"avg:\", avg)\nif avg > 1\n    print(\"ok\")\nprint(\"Done\")",
+      "diffs": [
+        {
+          "panel": "right",
+          "line": 1,
+          "find": "("
+        },
+        {
+          "panel": "right",
+          "line": 2,
+          "find": "\"0\""
+        },
+        {
+          "panel": "right",
+          "line": 4,
+          "at": "end"
+        },
+        {
+          "panel": "right",
+          "line": 5,
+          "find": "-"
+        },
+        {
+          "panel": "right",
+          "line": 6,
+          "at": "start"
+        },
+        {
+          "panel": "right",
+          "line": 7,
+          "find": "="
+        },
+        {
+          "panel": "right",
+          "line": 8,
+          "find": "N"
+        },
+        {
+          "panel": "right",
+          "line": 11,
+          "find": "//"
+        },
+        {
+          "panel": "right",
+          "line": 15,
+          "at": "end"
+        },
+        {
+          "panel": "right",
+          "line": 17,
+          "find": "\"Done\""
+        }
+      ]
+    }
+  ]
+}

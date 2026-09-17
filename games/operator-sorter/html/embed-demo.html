@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Embed demo · Operator Sorter</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #0b0e15; color: #e6e8ee;
+    font: 14px/1.6 -apple-system, "Helvetica Neue", Arial, sans-serif; }
+  .wrap { max-width: 1060px; margin: 0 auto; padding: 24px 20px 60px; }
+  h1 { font-size: 18px; font-weight: 500; margin: 0 0 6px; }
+  p.sub { color: #7c86a0; margin: 0 0 18px; font-size: 13px; }
+  .bar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 14px; }
+  .bar .lbl { color: #7c86a0; font-size: 13px; }
+  .bar .lbl + button { margin-right: 6px; }
+  button { background: #1b2130; color: #cfd6e6; border: 1px solid #2b3247; border-radius: 8px;
+    padding: 7px 13px; font-size: 13px; cursor: pointer; }
+  button.on { background: #1d2740; border-color: #4a7cff; color: #fff; }
+  #stage { background: #10131c; border: 1px solid #232a3d; border-radius: 12px; overflow: hidden; }
+  iframe { display: block; width: 100%; height: 660px; border: 0; }
+  .readout { margin-top: 14px; background: #141926; border: 1px solid #232a3d;
+    border-radius: 10px; padding: 14px 16px; font-size: 13px; color: #9aa3ba; }
+  .readout b { color: #e6e8ee; font-weight: 500; }
+  pre { background: #12161f; border: 1px solid #232a3d; border-radius: 10px;
+    padding: 14px 16px; overflow: auto; font-size: 12px; line-height: 1.7; color: #a9b4cc; margin: 18px 0 0; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Embed demo: drop Operator Sorter into a course page</h1>
+  <p class="sub">The iframe below is the game itself. Each time a level is finished it posts the score back to this page.</p>
+
+  <div class="bar">
+    <span class="lbl">Level:</span>
+    <button data-level="1" class="on">1</button>
+    <button data-level="2">2</button>
+    <button data-level="3">3</button>
+    <button data-level="4">4</button>
+    <button data-level="5">5</button>
+    <button data-level="6">6</button>
+    <button data-level="7">7</button>
+    <button data-level="8">8</button>
+    <button data-level="9">9</button>
+  </div>
+  <div class="bar">
+    <span class="lbl">Deck:</span>
+    <button data-deck="python" class="on">Python Operators</button>
+    <button data-deck="elements">Element Symbols</button>
+    <button data-deck="numbers">Number Words</button>
+  </div>
+
+  <div id="stage">
+    <iframe id="game" src="./?deck=python&level=1&embed=1" allow="fullscreen"></iframe>
+  </div>
+
+  <div class="readout" id="readout">
+    Waiting for the game to report… finish a level and the result shows up here.
+  </div>
+
+  <pre id="code">// Listen for the score in your course page
+window.addEventListener('message', function (e) {
+  var d = e.data;
+  if (!d || d.type !== 'correct_rate') return;
+  console.log(d.deck, d.level, d.correct + '/' + d.total, (d.rate * 100).toFixed(0) + '%');
+  // Your own reporting, e.g.
+  // fetch('/api/lms/progress', { method: 'POST', body: JSON.stringify(d) });
+});
+
+// Embed one fixed level (embed=1 skips the deck/level menu)
+// &lt;iframe src="/games/operator-sorter/html/?deck=python&amp;level=3&amp;embed=1"&gt;&lt;/iframe&gt;</pre>
+</div>
+
+<script>
+var iframe = document.getElementById('game');
+var readout = document.getElementById('readout');
+var deck = 'python';
+var level = 1;
+
+function reload() {
+  iframe.src = './?deck=' + deck + '&level=' + level + '&embed=1';
+}
+
+document.querySelectorAll('[data-level]').forEach(function (b) {
+  b.addEventListener('click', function () {
+    level = Number(b.dataset.level);
+    document.querySelectorAll('[data-level]').forEach(function (x) { x.classList.toggle('on', x === b); });
+    reload();
+  });
+});
+document.querySelectorAll('[data-deck]').forEach(function (b) {
+  b.addEventListener('click', function () {
+    deck = b.dataset.deck;
+    document.querySelectorAll('[data-deck]').forEach(function (x) { x.classList.toggle('on', x === b); });
+    reload();
+  });
+});
+
+window.addEventListener('message', function (e) {
+  var d = e.data;
+  if (!d || d.type !== 'correct_rate') return;
+  window.__lastReport = d;
+  var pct = Math.round(d.rate * 100);
+  var color = pct >= 80 ? '#3ecf8e' : (pct >= 50 ? '#f5a623' : '#ff6b6b');
+  readout.innerHTML = 'Report received — deck <b>' + d.deck + '</b> · level <b>' + d.level + '</b>'
+    + ' (' + d.levelTitle + ') · correct <b>' + d.correct + '/' + d.total + '</b> · '
+    + 'score <b style="color:' + color + '">' + pct + '%</b>';
+});
+</script>
+</body>
+</html>

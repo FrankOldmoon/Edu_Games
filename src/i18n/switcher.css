@@ -1,0 +1,39 @@
+/* Language switcher — shared by both in-repo games.
+
+   Colours are neutral so the same control reads fine on the game collections'
+   dark pages, and every rule is namespaced under .i18n-switch so a game's own
+   stylesheet can never collide with it. */
+
+.i18n-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 2px;
+  border: 1px solid #2b3247;
+  border-radius: 999px;
+  background: rgba(16, 19, 28, .82);
+  backdrop-filter: blur(6px);
+  font: 12px/1 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+    "PingFang SC", "Microsoft YaHei", Helvetica, Arial, sans-serif;
+  user-select: none;
+}
+
+.i18n-switch-btn {
+  appearance: none;
+  border: 0;
+  border-radius: 999px;
+  padding: 5px 11px;
+  background: transparent;
+  color: #8b93a8;
+  font: inherit;
+  cursor: pointer;
+  transition: color .16s ease, background .16s ease;
+}
+
+.i18n-switch-btn:hover { color: #e6e8ee; }
+
+.i18n-switch-btn.is-on {
+  background: #4a7cff;
+  color: #fff;
+  font-weight: 600;
+}

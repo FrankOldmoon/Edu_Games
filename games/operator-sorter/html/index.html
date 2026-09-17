@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title data-i18n="ui.appTitle">Operator Sorter</title>
+<style>
+  html, body {
+    margin: 0; padding: 0; height: 100%;
+    background: #10131c;
+    overflow: hidden;
+    -webkit-tap-highlight-color: transparent;
+  }
+  #game { width: 100%; height: 100%; }
+  #game canvas { display: block; touch-action: none; margin: 0 auto; }
+  #fallback {
+    position: absolute; inset: 0;
+    display: flex; align-items: center; justify-content: center;
+    color: #8b93a8; font: 14px/1.6 -apple-system, "Helvetica Neue", Arial, sans-serif;
+    text-align: center; padding: 24px;
+  }
+  /* 语言切换器：画布上方居中，这里正好没有 HUD 文字 */
+  #lang {
+    position: fixed; top: 6px; left: 50%; transform: translateX(-50%);
+    z-index: 10;
+  }
+</style>
+</head>
+<body>
+  <div id="game"></div>
+  <div id="fallback" data-i18n="ui.loading">Loading…</div>
+  <div id="lang"></div>
+
+  <script type="module" src="./game.js"></script>
+</body>
+</html>

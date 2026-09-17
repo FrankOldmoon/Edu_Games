@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title data-i18n="ui.appTitle">Python Syntax Spot</title>
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+<header class="bar">
+  <a class="back" href="../" data-i18n="ui.backToList">← Level list</a>
+  <span class="lvname" id="lvName"></span>
+  <span class="spacer"></span>
+  <span id="lang"></span>
+  <span class="timer" id="timer"></span>
+  <span class="counter" id="counter"></span>
+  <button class="btn" id="btnHint" data-i18n="ui.hint">Hint</button>
+  <button class="btn" id="btnRetry" hidden data-i18n="ui.retry">Retry</button>
+  <button class="btn primary" id="btnNext" hidden data-i18n="ui.next">Next →</button>
+</header>
+
+<main>
+  <p class="lead" id="lead"></p>
+
+  <!-- 倒计时进度条：把剩余时间再用 slider 的形式摆一次，就在代码上方 -->
+  <div class="timebar" id="timebar" data-i18n-title="ui.timeLeft" title="Time left">
+    <div class="track"><div class="fill" id="timeFill"></div></div>
+    <div class="thumb" id="timeThumb"></div>
+  </div>
+
+  <div class="boards">
+    <section class="board" data-panel="left">
+      <header data-i18n="ui.panelLeft">Original code (correct)</header>
+      <div class="board-body">
+        <div class="gutter"></div>
+        <pre class="code"><code class="language-python"></code></pre>
+        <div class="marks"></div>
+      </div>
+    </section>
+
+    <section class="board" data-panel="right">
+      <header data-i18n="ui.panelRight">Changed code — click the spots that differ from the left</header>
+      <div class="board-body">
+        <div class="gutter"></div>
+        <pre class="code"><code class="language-python"></code></pre>
+        <div class="marks"></div>
+      </div>
+    </section>
+  </div>
+
+  <ul class="notes" id="notes"></ul>
+  <div id="extras"></div>
+  <div class="err" id="err" hidden></div>
+</main>
+
+<!-- 通关弹框：半透明遮罩 + 成绩卡，卡片里自带「下一关」，不会自己消失。
+     点遮罩或按 Esc 可以收掉回去看代码；烟花画布夹在遮罩和卡片之间飞。 -->
+<div class="celebrate" id="celebrate" hidden></div>
+
+<div class="celebrate-card" id="celebrateCard" hidden>
+  <div class="celebrate-check">✓</div>
+  <div class="celebrate-title" id="celebrateTitle"></div>
+  <div class="celebrate-time" id="celebrateTime"></div>
+  <button class="btn primary celebrate-next" id="celebrateNext" type="button"></button>
+</div>
+
+<script type="module" src="../assets/play.js"></script>
+</body>
+</html>

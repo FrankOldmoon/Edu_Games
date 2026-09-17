@@ -1,0 +1,14 @@
+# macOS metadata (these came along with the original zip)
+__MACOSX/
+.DS_Store
+
+# dependencies / build output
+node_modules/
+dist/
+
+# Third-party game mirrors captured by index.mjs. Not our source, so it is
+# deliberately kept out of the repository (and out of its history) - see README.
+games/external/
+
+# Hosting panel / server-local config
+.user.ini

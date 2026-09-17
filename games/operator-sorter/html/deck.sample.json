@@ -1,0 +1,40 @@
+{
+  "_comment": "Template for loading decks over the URL: index.html?deckUrl=./deck.sample.json — a single deck object, an array, or { \"decks\": [ ... ] } are all accepted. Omit `levels` to reuse the shared layouts (a deck with more than 7 categories automatically gets extra levels so no category is dropped).",
+
+  "decks": [
+    {
+      "id": "opposites",
+      "name": "Opposites",
+      "desc": "Match each word to its opposite",
+      "categories": [
+        { "item": "up",   "bin": "DOWN" },
+        { "item": "hot",  "bin": "COLD" },
+        { "item": "big",  "bin": "SMALL" },
+        { "item": "fast", "bin": "SLOW" },
+        { "item": "open", "bin": "SHUT" },
+        { "item": "day",  "bin": "NIGHT" },
+        { "item": "near", "bin": "FAR" }
+      ]
+    },
+
+    {
+      "id": "greek",
+      "name": "Greek Letters",
+      "desc": "Match each letter to its name",
+      "categories": [
+        { "item": "α", "bin": "ALPHA" },
+        { "item": "β", "bin": "BETA" },
+        { "item": "γ", "bin": "GAMMA" },
+        { "item": "δ", "bin": "DELTA" },
+        { "item": "ε", "bin": "EPSILON" },
+        { "item": "ζ", "bin": "ZETA" },
+        { "item": "η", "bin": "ETA" },
+        { "item": "θ", "bin": "THETA" },
+        { "item": "ι", "bin": "IOTA" },
+        { "item": "κ", "bin": "KAPPA" },
+        { "item": "λ", "bin": "LAMBDA" },
+        { "item": "μ", "bin": "MU" }
+      ]
+    }
+  ]
+}
