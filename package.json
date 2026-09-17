@@ -1,10 +1,10 @@
 {
-  "name": "html5-game-mirror",
+  "name": "edu-games",
   "version": "2.1.0",
   "private": true,
   "type": "module",
   "bin": {
-    "html5-game-mirror": "index.mjs"
+    "edu-games": "index.mjs"
   },
   "scripts": {
     "dev": "vite",
