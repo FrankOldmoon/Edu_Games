@@ -127,13 +127,26 @@ reportResult("<id>", {
 和公共组件（`.bar .brand .back .spacer .readout .btn .panel .lead .celebrate`）。只写本游戏特有的部分。
 
 共享 JS：
-- `src/game-ui/feedback.js` 的 `celebrate({title, lines, actionLabel, onAction, onDismiss})` —— 半透明通关卡，不会自动消失
+- `src/game-ui/feedback.js` 的 `celebrate({title, lines, actionLabel, onAction, onDismiss})` —— 半透明通关卡，不会自动消失；
+  默认会放一轮 **通关烟花**（`src/game-ui/fireworks.js` 的 `launchFireworks`），不要就传 `fireworks: false`
+- `src/game-ui/timer.js` 的 `createCountdown({el, label, onTick, onExpire})` —— 每关倒计时，
+  配套 `limitMs(level, unit, base, per)` 把关卡库里的 `timer: {base, per}` 换算成毫秒
 - `src/game-ui/progress.js` —— 参数、进度、关卡库加载、回传
 
 ## 7. 体验底线
 
+- **每关都有计时**：用 `createCountdown`，样式一律用基座的 `.clock`（剩不到 10 秒变红心跳）。
+  限时规则写进关卡库的 `timer: {base, per}`，`unit` 是这个游戏自己的单位（对数 / 行数 / 项数 / 步数上限），
+  这样规则在数据里、老师能改。超时就把出问题的区域加上 `.failed`、给出重试，并把 `timedOut: true` 回传。
+- 失败要给出**信息**（哪里错了、该看什么），不是只说「错了」；超时干脆把正确答案摆出来
 - 键盘可达，`:focus-visible` 有描边；按钮就是 `<button>`
 - `prefers-reduced-motion` 下关掉装饰动画（`base.css` 已兜一层）
 - 每关都要有「重试」，卡住永远有出路
-- 通关要有明确反馈：统一用 `celebrate()`
-- 失败要给出**信息**（哪里错了、该看什么），不是只说「错了」
+
+## 8. 两个容易踩的坑
+
+- **给 `transform-style: preserve-3d` 的元素加 `opacity < 1`**：会把 3D 上下文拍平，
+  `backface-visibility: hidden` 随之失效，翻牌卡片配对成功后反而显示背面（`memory` 踩过）。
+  翻牌状态只用正面的颜色表达。
+- **i18n 的点路径**：`t("levels.m06.defs.upper()")` 会被点号拆坏。
+  按**数据键**取文案（键里可能有点号、括号）时，直接 `import` 语言包读属性，别走 `t()`。

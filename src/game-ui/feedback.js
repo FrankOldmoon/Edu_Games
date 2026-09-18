@@ -6,9 +6,12 @@
      actionLabel: "下一关 →",
      onAction:  fn,   // 点了主按钮
      onDismiss: fn,   // 点遮罩 / 按 Esc 收掉
+     fireworks: false, // 默认会放一轮通关烟花（src/game-ui/fireworks.js）
    })
 
    弹框不会自动消失；同时只保留一个实例。 */
+
+import { launchFireworks } from "./fireworks.js";
 
 let current = null;
 
@@ -68,6 +71,7 @@ export function celebrate(opts) {
 
   function close(byAction) {
     document.removeEventListener("keydown", onKey, true);
+    if (fx) fx.stop();
     overlay.remove();
     card.remove();
     current = null;
@@ -84,6 +88,9 @@ export function celebrate(opts) {
   document.body.appendChild(overlay);
   document.body.appendChild(card);
   btn.focus();
+
+  /* 通关烟花：火花飞在遮罩上面、卡片下面（见 base.css 的 .fx-canvas） */
+  const fx = o.fireworks === false ? null : launchFireworks({ shells: 9, hue: o.hue });
 
   current = { close: close };
   return current;
