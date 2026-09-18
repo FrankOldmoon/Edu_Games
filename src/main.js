@@ -10,6 +10,10 @@
 
 import sorterThumb from "../games/operator-sorter/capture.png";
 import spotThumb from "../games/spot-the-difference/capture.png";
+import memoryThumb from "../games/memory/capture.png";
+import orderThumb from "../games/order/capture.png";
+import sliceThumb from "../games/slice/capture.png";
+import robotThumb from "../games/robot/capture.png";
 
 const GAMES = [
   {
@@ -73,6 +77,34 @@ const GAMES = [
     desc: "Spot the changed spots in Python code — 10 levels on variables, operators, if/elif/else, indentation and colons",
     url: "./games/spot-the-difference/",
     thumb: spotThumb,
+    tag: "HTML5",
+  },
+  {
+    name: "Term Memory",
+    desc: "Flip two cards and match each Python term with what it means — 8 levels",
+    url: "./games/memory/",
+    thumb: memoryThumb,
+    tag: "HTML5",
+  },
+  {
+    name: "Program Assembly",
+    desc: "Put shuffled lines back in the order that makes the program print the target output — 8 levels",
+    url: "./games/order/",
+    thumb: orderThumb,
+    tag: "HTML5",
+  },
+  {
+    name: "Slice Shot",
+    desc: "Set start / stop / step and hit the target slice — 10 levels, ending on negative steps",
+    url: "./games/slice/",
+    thumb: sliceThumb,
+    tag: "HTML5",
+  },
+  {
+    name: "Robot Orders",
+    desc: "Program a robot with five instructions and deliver every parcel — 8 levels",
+    url: "./games/robot/",
+    thumb: robotThumb,
     tag: "HTML5",
   },
 ];

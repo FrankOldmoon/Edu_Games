@@ -33,6 +33,10 @@ export default defineConfig({
     rollupOptions: {
       input: {
         index: resolve("index.html"),
+        "memory": resolve("games/memory/index.html"),
+        "order": resolve("games/order/index.html"),
+        "slice": resolve("games/slice/index.html"),
+        "robot": resolve("games/robot/index.html"),
         "operator-sorter": resolve("games/operator-sorter/html/index.html"),
         "operator-sorter-embed": resolve("games/operator-sorter/html/embed-demo.html"),
         "spot-the-difference": resolve("games/spot-the-difference/index.html"),

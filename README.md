@@ -3,18 +3,24 @@
 A small collection of offline-friendly HTML5 games for learning to program, the card wall
 that serves them, and a tool for mirroring third-party HTML5 games for offline use.
 
-Two games are written here. Both are bilingual (English + Simplified Chinese), bundled by
-Vite, and pull their libraries from npm.
+Six games are written here, all bilingual (English + Simplified Chinese), bundled by Vite,
+and pulling their libraries from npm. They are spread deliberately across the cognitive
+ladder: recalling terms, spotting a difference, ordering a program, predicting a slice, and
+finally steering an agent with a program you assembled yourself.
 
 ## The games
 
 | Game | What it teaches | Source |
 | --- | --- | --- |
-| **Python Syntax Spot** | Find the spots where two Python snippets differ — variables, `print` / `input`, arithmetic and comparison operators, data types, `if` / `elif` / `else`, indentation | [`games/spot-the-difference`](games/spot-the-difference) |
+| **Term Memory** | Match a Python name with what it means — types, operators, built-ins, containers, branches, string methods, common errors, functions | [`games/memory`](games/memory) |
+| **Python Syntax Spot** | Find the spots where two Python snippets differ — variables, `print` / `input`, operators, data types, `if` / `elif` / `else`, indentation | [`games/spot-the-difference`](games/spot-the-difference) |
+| **Program Assembly** | Put shuffled lines back in the order that makes the program print the target output — from three lines to a bubble sort | [`games/order`](games/order) |
+| **Slice Shot** | Predict what `start:stop:step` really selects, including negative indices and steps | [`games/slice`](games/slice) |
+| **Robot Orders** | Sequence, turning and counted repetition: drive a robot with five instructions inside a step budget | [`games/robot`](games/robot) |
 | **Operator Sorter** | Route parcels into the bin that names their Python operator (`*` → TIMES, `//` → FLOOR, …) | [`games/operator-sorter`](games/operator-sorter) |
 
 Third-party games captured with the mirror tool live in `games/external/`. That folder is
-**not tracked** — a fresh clone contains only the two games above. See
+**not tracked** — a fresh clone contains only the six games above. See
 [Mirroring third-party games](#mirroring-third-party-games) to recreate it.
 
 ## Quick start
@@ -36,10 +42,17 @@ npm run preview    # serve the built dist/
 ├── index.html               card wall — the Vite entry page
 ├── src/
 │   ├── main.js              the GAMES list + card rendering
-│   └── i18n/                shared i18n runtime + switcher styles
+│   ├── i18n/                shared i18n runtime + switcher styles
+│   └── game-ui/             shared base.css, celebrate() and progress helpers
+├── docs/
+│   └── game-template.md     the contract every new game follows
 ├── games/
-│   ├── spot-the-difference/ our game  (Vite entries: index.html, play/index.html)
-│   ├── operator-sorter/     our game  (Vite entry:  html/index.html)
+│   ├── memory/              our games — one HTML entry each, Vite-bundled
+│   ├── order/               (register them in vite.config.js and src/main.js)
+│   ├── slice/
+│   ├── robot/
+│   ├── spot-the-difference/ (two pages: index.html + play/index.html)
+│   ├── operator-sorter/     (Phaser, pulled from npm)
 │   └── external/            third-party mirrors — NOT tracked
 ├── index.mjs                the mirror downloader
 ├── vite.config.js           multi-page build + copies games/external into dist/
@@ -47,9 +60,15 @@ npm run preview    # serve the built dist/
 ```
 
 To add a game to the card wall, append an entry to the `GAMES` array in
-[`src/main.js`](src/main.js). A game we own is a Vite HTML entry (add it to
-`rollupOptions.input` in [`vite.config.js`](vite.config.js)); a mirrored game is copied in
-verbatim and referenced by URL only.
+[`src/main.js`](src/main.js) and register its HTML entry in `rollupOptions.input` in
+[`vite.config.js`](vite.config.js). A mirrored game needs neither — it is copied in verbatim
+and referenced by URL only.
+
+A new game we write should follow [`docs/game-template.md`](docs/game-template.md): one HTML
+entry, a `levels.json` carrying structure only (every readable string lives in the locale
+packs), the shared [`src/i18n`](src/i18n/index.js) runtime, the shared helpers in
+[`src/game-ui/`](src/game-ui), and the `game_result` postMessage contract. Any of the six
+games works as a worked example; [`games/memory`](games/memory) is the shortest.
 
 ## Languages
 
