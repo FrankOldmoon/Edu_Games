@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title data-i18n="ui.appTitle">Slice Shot</title>
+<link rel="stylesheet" href="./assets/style.css">
+</head>
+<body data-view="list">
+
+<header class="bar">
+  <a class="back" href="../../" data-i18n="ui.backToSite">← All games</a>
+  <span class="brand" data-i18n="ui.appTitle">Slice Shot</span>
+  <span class="spacer"></span>
+  <span id="lang"></span>
+</header>
+
+<main>
+  <section id="viewList">
+    <p class="lead" id="lead"></p>
+    <div class="listbar">
+      <span class="readout dim" id="progText"></span>
+      <span class="spacer"></span>
+      <button class="btn ghost" id="btnReset" type="button" data-i18n="ui.reset">Reset progress</button>
+    </div>
+    <div class="levels" id="levels"></div>
+    <div class="err hidden" id="err"></div>
+  </section>
+
+  <section id="viewGame" class="hidden">
+    <div class="gamebar">
+      <span class="lvname" id="lvName"></span>
+      <span class="spacer"></span>
+      <span class="readout dim" id="status"></span>
+      <button class="btn" id="btnRetry" type="button" data-i18n="ui.retry">Retry</button>
+      <button class="btn ghost" id="btnToList" type="button" data-i18n="ui.toList">Level list</button>
+    </div>
+
+    <p class="tip" id="tip"></p>
+
+    <div class="targetbox panel">
+      <span class="lbl" data-i18n="ui.target">Target</span>
+      <div class="tstrip" id="target"></div>
+    </div>
+
+    <div class="stripwrap">
+      <div class="strip" id="strip"></div>
+      <div class="idxkey">
+        <span data-i18n="ui.idxKeyUp">numbers above: index from the front</span>
+        <span data-i18n="ui.idxKeyDown">numbers below: index from the back</span>
+      </div>
+    </div>
+
+    <div class="expr">
+      <span class="varname" id="listName">nums</span><span class="punct">[</span><input class="slot" id="start" type="text" inputmode="numeric" autocomplete="off" aria-label="start" data-i18n-placeholder="ui.slotStart"><span class="punct">:</span><input class="slot" id="stop" type="text" inputmode="numeric" autocomplete="off" aria-label="stop" data-i18n-placeholder="ui.slotStop"><span class="punct">:</span><input class="slot" id="step" type="text" inputmode="numeric" autocomplete="off" aria-label="step" data-i18n-placeholder="ui.slotStep"><span class="punct">]</span>
+      <button class="btn primary" id="btnFire" type="button" data-i18n="ui.fire">Fire</button>
+    </div>
+    <p class="exprline" id="exprLine"></p>
+    <p class="slotkey" data-i18n-html="ui.slotKey"></p>
+
+    <div class="panel block">
+      <header class="pane-head" data-i18n="ui.got">You got</header>
+      <div class="tray" id="tray"></div>
+    </div>
+  </section>
+</main>
+
+<script type="module" src="./assets/game.js"></script>
+</body>
+</html>

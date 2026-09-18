@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title data-i18n="ui.appTitle">Robot Orders</title>
+<link rel="stylesheet" href="./assets/style.css">
+</head>
+<body data-view="list">
+
+<header class="bar">
+  <a class="back" href="../../" data-i18n="ui.backToSite">← All games</a>
+  <span class="brand" data-i18n="ui.appTitle">Robot Orders</span>
+  <span class="spacer"></span>
+  <span id="lang"></span>
+</header>
+
+<main>
+  <section id="viewList">
+    <p class="lead" id="lead"></p>
+    <div class="listbar">
+      <span class="readout dim" id="progText"></span>
+      <span class="spacer"></span>
+      <button class="btn ghost" id="btnReset" type="button" data-i18n="ui.reset">Reset progress</button>
+    </div>
+    <div class="levels" id="levels"></div>
+    <div class="err hidden" id="err"></div>
+  </section>
+
+  <section id="viewGame" class="hidden">
+    <div class="gamebar">
+      <span class="lvname" id="lvName"></span>
+      <span class="spacer"></span>
+      <span class="readout dim" id="status"></span>
+      <span class="readout" id="steps"></span>
+      <button class="btn primary" id="btnRun" type="button" data-i18n="ui.run">Run</button>
+      <button class="btn" id="btnStep" type="button" data-i18n="ui.stepOne">Step</button>
+      <button class="btn" id="btnRewind" type="button" data-i18n="ui.rewind">Reset robot</button>
+      <button class="btn ghost" id="btnToList" type="button" data-i18n="ui.toList">Level list</button>
+    </div>
+
+    <p class="tip" id="tip"></p>
+
+    <div class="wrap">
+      <div class="pane boardpane">
+        <header class="pane-head" data-i18n="ui.warehouse">Warehouse</header>
+        <div class="boardwrap"><div class="board" id="board"></div></div>
+        <div class="legend">
+          <span><i class="sw robot"></i><span data-i18n="ui.lgRobot">robot</span></span>
+          <span><i class="sw parcel"></i><span data-i18n="ui.lgParcel">parcel</span></span>
+          <span><i class="sw goal"></i><span data-i18n="ui.lgGoal">drop zone</span></span>
+          <span><i class="sw wall"></i><span data-i18n="ui.lgWall">wall</span></span>
+        </div>
+      </div>
+
+      <aside class="pane programpane">
+        <header class="pane-head" data-i18n="ui.program">Program</header>
+        <div class="palette" id="palette">
+          <button class="pbtn" type="button" data-op="F"><b>▲</b><span data-i18n="ui.opF">Forward</span></button>
+          <button class="pbtn" type="button" data-op="L"><b>↰</b><span data-i18n="ui.opL">Turn left</span></button>
+          <button class="pbtn" type="button" data-op="R"><b>↱</b><span data-i18n="ui.opR">Turn right</span></button>
+          <button class="pbtn" type="button" data-op="P"><b>✋</b><span data-i18n="ui.opP">Pick up</span></button>
+          <button class="pbtn" type="button" data-op="D"><b>⬇</b><span data-i18n="ui.opD">Put down</span></button>
+        </div>
+        <ol class="prog" id="prog"></ol>
+        <div class="progbar">
+          <span class="readout dim" id="budget"></span>
+          <span class="spacer"></span>
+          <button class="btn ghost" id="btnClear" type="button" data-i18n="ui.clear">Clear program</button>
+        </div>
+      </aside>
+    </div>
+  </section>
+</main>
+
+<script type="module" src="./assets/game.js"></script>
+</body>
+</html>

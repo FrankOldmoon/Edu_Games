@@ -1,0 +1,63 @@
+{
+  "levels": [
+    {
+      "id": "o01",
+      "lines": ["name = \"Ada\"", "greeting = \"Hi \" + name", "print(greeting)"],
+      "output": "Hi Ada"
+    },
+    {
+      "id": "o02",
+      "lines": ["a = 1", "b = 2", "a, b = b, a", "print(a, b)"],
+      "output": "2 1"
+    },
+    {
+      "id": "o03",
+      "stdin": "18",
+      "lines": ["age = int(input())", "age = age + 1", "print(age)"],
+      "output": "19"
+    },
+    {
+      "id": "o04",
+      "lines": ["total = 0", "for n in [1, 2, 3]:", "    total = total + n", "print(total)"],
+      "output": "6"
+    },
+    {
+      "id": "o05",
+      "lines": ["def double(n):", "    return n * 2", "", "print(double(5))"],
+      "output": "10"
+    },
+    {
+      "id": "o06",
+      "lines": ["nums = [3, 1, 2]", "nums.append(0)", "nums.sort()", "print(nums)"],
+      "output": "[0, 1, 2, 3]"
+    },
+    {
+      "id": "o07",
+      "lines": [
+        "score = 75",
+        "if score >= 90:",
+        "    print(\"A\")",
+        "elif score >= 60:",
+        "    print(\"B\")",
+        "else:",
+        "    print(\"C\")"
+      ],
+      "output": "B"
+    },
+    {
+      "id": "o08",
+      "lines": [
+        "values = [5, 2, 9, 1]",
+        "swapped = True",
+        "while swapped:",
+        "    swapped = False",
+        "    for i in range(len(values) - 1):",
+        "        if values[i] > values[i + 1]:",
+        "            values[i], values[i + 1] = values[i + 1], values[i]",
+        "            swapped = True",
+        "print(values)"
+      ],
+      "output": "[1, 2, 5, 9]"
+    }
+  ]
+}

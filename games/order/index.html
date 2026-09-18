@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title data-i18n="ui.appTitle">Program Assembly</title>
+<link rel="stylesheet" href="./assets/style.css">
+</head>
+<body data-view="list">
+
+<header class="bar">
+  <a class="back" href="../../" data-i18n="ui.backToSite">← All games</a>
+  <span class="brand" data-i18n="ui.appTitle">Program Assembly</span>
+  <span class="spacer"></span>
+  <span id="lang"></span>
+</header>
+
+<main>
+  <section id="viewList">
+    <p class="lead" id="lead"></p>
+    <div class="listbar">
+      <span class="readout dim" id="progText"></span>
+      <span class="spacer"></span>
+      <button class="btn ghost" id="btnReset" type="button" data-i18n="ui.reset">Reset progress</button>
+    </div>
+    <div class="levels" id="levels"></div>
+    <div class="err hidden" id="err"></div>
+  </section>
+
+  <section id="viewGame" class="hidden">
+    <div class="gamebar">
+      <span class="lvname" id="lvName"></span>
+      <span class="spacer"></span>
+      <span class="readout dim" id="status"></span>
+      <button class="btn" id="btnHint" type="button" data-i18n="ui.hint">Hint</button>
+      <button class="btn" id="btnRetry" type="button" data-i18n="ui.retry">Retry</button>
+      <button class="btn ghost" id="btnToList" type="button" data-i18n="ui.toList">Level list</button>
+    </div>
+
+    <p class="tip" id="tip"></p>
+
+    <div class="wrap">
+      <div class="pane">
+        <header class="pane-head" data-i18n="ui.program">Program — drag a line, or use ↑ ↓</header>
+        <ol class="lines" id="lines"></ol>
+        <div class="runbar">
+          <button class="btn primary" id="btnRun" type="button" data-i18n="ui.run">Run</button>
+        </div>
+      </div>
+
+      <aside class="side">
+        <div class="panel block">
+          <header class="pane-head" data-i18n="ui.goal">Target output</header>
+          <pre class="io" id="goal"></pre>
+        </div>
+        <div class="panel block hidden" id="stdinBox">
+          <header class="pane-head" data-i18n="ui.stdin">Input</header>
+          <pre class="io" id="stdin"></pre>
+        </div>
+        <div class="panel block hidden" id="consoleBox">
+          <header class="pane-head" data-i18n="ui.console">Output</header>
+          <pre class="io ok" id="console"></pre>
+        </div>
+      </aside>
+    </div>
+  </section>
+</main>
+
+<script type="module" src="./assets/game.js"></script>
+</body>
+</html>

@@ -1,0 +1,12 @@
+{
+  "levels": [
+    { "id": "m01", "cols": 4, "pairs": ["int", "str", "float", "bool"] },
+    { "id": "m02", "cols": 4, "pairs": ["//", "%", "**", "!="] },
+    { "id": "m03", "cols": 4, "pairs": ["len()", "print()", "input()", "int()"] },
+    { "id": "m04", "cols": 4, "pairs": ["list", "dict", "tuple", "set"] },
+    { "id": "m05", "cols": 4, "pairs": ["if", "elif", "else", "for"] },
+    { "id": "m06", "cols": 4, "pairs": [".upper()", ".strip()", ".split()", ".replace()"] },
+    { "id": "m07", "cols": 4, "pairs": ["SyntaxError", "TypeError", "NameError", "IndexError"] },
+    { "id": "m08", "cols": 4, "pairs": ["def", "return", "parameter", "argument", "call", "scope"] }
+  ]
+}

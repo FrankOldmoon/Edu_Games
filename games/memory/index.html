@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title data-i18n="ui.appTitle">Python Term Memory</title>
+<link rel="stylesheet" href="./assets/style.css">
+</head>
+<body data-view="list">
+
+<header class="bar">
+  <a class="back" href="../../" data-i18n="ui.backToSite">← All games</a>
+  <span class="brand" data-i18n="ui.appTitle">Python Term Memory</span>
+  <span class="spacer"></span>
+  <span id="lang"></span>
+</header>
+
+<main>
+  <section id="viewList">
+    <p class="lead" id="lead"></p>
+    <div class="listbar">
+      <span class="readout dim" id="progText"></span>
+      <span class="spacer"></span>
+      <button class="btn ghost" id="btnReset" type="button" data-i18n="ui.reset">Reset progress</button>
+    </div>
+    <div class="levels" id="levels"></div>
+    <div class="err hidden" id="err"></div>
+  </section>
+
+  <section id="viewGame" class="hidden">
+    <div class="gamebar">
+      <span class="lvname" id="lvName"></span>
+      <span class="spacer"></span>
+      <span class="readout dim" id="moves"></span>
+      <span class="readout" id="clock"></span>
+      <button class="btn" id="btnRestart" type="button" data-i18n="ui.retry">Retry</button>
+      <button class="btn ghost" id="btnToList" type="button" data-i18n="ui.toList">Level list</button>
+    </div>
+    <div class="board" id="board"></div>
+    <p class="hintline" id="hint"></p>
+  </section>
+</main>
+
+<script type="module" src="./assets/game.js"></script>
+</body>
+</html>
