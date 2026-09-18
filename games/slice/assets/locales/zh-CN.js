@@ -31,6 +31,7 @@ export default {
     omitted: "空",
     nothing: "什么都没有 —— 这个切片是空的",
 
+    timeLeft: "剩余时间",
     timeLimit: "限时 {n} 秒",
     leftTime: "剩余 {n} 秒",
     timeUp: "时间到 —— 重来一关吧",

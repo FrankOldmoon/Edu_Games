@@ -25,6 +25,7 @@ export default {
     retry: "Retry",
     toList: "Level list",
     moves: "{n} moves",
+    timeLeft: "Time left",
     timeLimit: "{n} s limit",
     leftTime: "{n} s left",
     timeUp: "Time's up — here is what you missed",

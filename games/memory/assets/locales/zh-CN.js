@@ -19,6 +19,7 @@ export default {
     retry: "重来",
     toList: "关卡列表",
     moves: "{n} 步",
+    timeLeft: "剩余时间",
     timeLimit: "限时 {n} 秒",
     leftTime: "剩余 {n} 秒",
     timeUp: "时间到 —— 看看你错过了哪些",

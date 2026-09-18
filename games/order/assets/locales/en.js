@@ -29,6 +29,7 @@ export default {
     upAria: "Move line {n} up",
     downAria: "Move line {n} down",
 
+    timeLeft: "Time left",
     timeLimit: "{n} s limit",
     leftTime: "{n} s left",
     timeUp: "Time's up — here is the right order",

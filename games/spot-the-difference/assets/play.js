@@ -66,31 +66,19 @@ function urlWith(patch) {
 }
 
 /* ------------------------------ 计时 --------------------------------- */
-/* 倒计时本身交给共享的 createCountdown（src/game-ui/timer.js）：读数文案、
-   剩不到 10 秒变红心跳、被扣时闪一下、归零回调都在那边，各游戏行为一致。
-   这里只补两件本关特有的事：代码上方那条进度条，和 readout 的文案格式。 */
-function paintBar(leftMs) {
-  const total = clock.totalMs();
-  const pct = total > 0 ? Math.max(0, Math.min(1, leftMs / total)) * 100 : 0;
-  const fill = $("timeFill");
-  if (fill) fill.style.width = pct + "%";
-  const thumb = $("timeThumb");
-  if (thumb) thumb.style.left = pct + "%";
-  const bar = $("timebar");
-  if (bar) bar.classList.toggle("low", leftMs <= 10000);
-}
-
+/* 计时整个交给共享的 createCountdown（src/game-ui/timer.js）：数字胶囊、
+   剩不到 10 秒变红心跳、被扣时闪一下、归零回调、以及代码上方那条 slider
+   进度条都在那边，各游戏行为一致。这里只补本关特有的一件小事：读数文案。 */
 const clock = createCountdown({
   el: $("timer"),
+  bar: $("timebar"),
   label: function (ms) { return t("ui.seconds", { n: Math.ceil(ms / 1000) }); },
-  onTick: paintBar,
   onExpire: function () { timeUp(); },
 });
 
 function startTimer(ms) {
   startedAt = Date.now();
   clock.start(ms);
-  paintBar(ms);
 }
 
 function stopTimer() {
@@ -99,14 +87,6 @@ function stopTimer() {
 
 function penalize() {
   clock.penalize(penaltyMs);
-  paintBar(clock.leftMs());
-  const bar = $("timebar");
-  if (bar) {
-    bar.classList.remove("hit");
-    void bar.offsetWidth;          /* 强制回流，让动画能重新播放 */
-    bar.classList.add("hit");
-    setTimeout(function () { bar.classList.remove("hit"); }, 420);
-  }
 }
 
 /* --------------------------- 文字位置的计算 --------------------------- */
@@ -365,7 +345,6 @@ function timeUp() {
   timedOut = true;
   stopTimer();
   clock.paint(0);
-  paintBar(0);
   $("btnHint").disabled = true;
   addExtra(t("ui.timeUp", { n: Math.round(penaltyMs / 1000) }), "bad");
   $("btnRetry").hidden = false;

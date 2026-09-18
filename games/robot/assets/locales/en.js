@@ -39,6 +39,7 @@ export default {
     budget: "{used} / {max} steps",
     plan: "{n} steps planned",
     bestLine: "shortest known solution: {best} steps",
+    timeLeft: "Time left",
     timeLimit: "{n} s limit",
     leftTime: "{n} s left",
     timeUp: "Time's up — try the level again",

@@ -39,6 +39,7 @@ export default {
     budget: "{used} / {max} 步",
     plan: "计划 {n} 步",
     bestLine: "已知最短：{best} 步",
+    timeLeft: "剩余时间",
     timeLimit: "限时 {n} 秒",
     leftTime: "剩余 {n} 秒",
     timeUp: "时间到 —— 重来一关吧",

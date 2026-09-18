@@ -340,7 +340,7 @@ function relocalize() {
 async function boot() {
   mountSwitcher();
   i18n.onChange(relocalize);
-  clock = createCountdown({ el: el("clock"), onExpire: timeUp });
+  clock = createCountdown({ el: el("clock"), bar: el("timebar"), onExpire: timeUp });
 
   if (params().json) {
     try {

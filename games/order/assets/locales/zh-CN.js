@@ -29,6 +29,7 @@ export default {
     upAria: "把第 {n} 行上移",
     downAria: "把第 {n} 行下移",
 
+    timeLeft: "剩余时间",
     timeLimit: "限时 {n} 秒",
     leftTime: "剩余 {n} 秒",
     timeUp: "时间到 —— 这是正确的顺序",

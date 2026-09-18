@@ -22,11 +22,8 @@
 <main>
   <p class="lead" id="lead"></p>
 
-  <!-- 倒计时进度条：把剩余时间再用 slider 的形式摆一次，就在代码上方 -->
-  <div class="timebar" id="timebar" data-i18n-title="ui.timeLeft" title="Time left">
-    <div class="track"><div class="fill" id="timeFill"></div></div>
-    <div class="thumb" id="timeThumb"></div>
-  </div>
+  <!-- 倒计时进度条：里面那条 track/fill 和滑块由 src/game-ui/timer.js 生成 -->
+  <div class="timebar" id="timebar" data-i18n-title="ui.timeLeft" title="Time left"></div>
 
   <div class="boards">
     <section class="board" data-panel="left">

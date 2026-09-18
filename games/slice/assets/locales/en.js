@@ -31,6 +31,7 @@ export default {
     omitted: "empty",
     nothing: "nothing — the slice came out empty",
 
+    timeLeft: "Time left",
     timeLimit: "{n} s limit",
     leftTime: "{n} s left",
     timeUp: "Time's up — try the level again",
