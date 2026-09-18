@@ -8,37 +8,33 @@
 </head>
 <body data-view="list">
 
+<!-- 顶栏只有一条，内容按 data-view 切换：
+     列表视图 = 游戏名 + 进度 + 语言 + 重置；游戏视图 = 返回 + 关卡名 + 语言 + 计时 + 读数 + 按钮。
+     和 spot-the-difference 的列表页 / 游戏页顶栏一一对应，所以各游戏看起来完全一样。 -->
 <header class="bar">
-  <a class="back" href="../../" data-i18n="ui.backToSite">← All games</a>
-  <span class="brand" data-i18n="ui.appTitle">Python Term Memory</span>
+  <button class="back game-only" id="btnToList" type="button" data-i18n="ui.toList">← Level list</button>
+  <span class="brand list-only" data-i18n="ui.appTitle">Python Term Memory</span>
+  <span class="lvname game-only" id="lvName"></span>
+  <span class="progress list-only" id="progText"></span>
   <span class="spacer"></span>
   <span id="lang"></span>
+  <span class="clock game-only" id="clock">0:00</span>
+  <span class="counter game-only" id="moves"></span>
+  <button class="btn list-only" id="btnReset" type="button" data-i18n="ui.reset">Reset progress</button>
+  <button class="btn game-only" id="btnRestart" type="button" data-i18n="ui.retry">Retry</button>
 </header>
 
 <main>
-  <section id="viewList">
+  <section id="viewList" class="list-only">
     <p class="lead" id="lead"></p>
-    <div class="listbar">
-      <span class="readout dim" id="progText"></span>
-      <span class="spacer"></span>
-      <button class="btn ghost" id="btnReset" type="button" data-i18n="ui.reset">Reset progress</button>
-    </div>
     <div class="levels" id="levels"></div>
-    <div class="err hidden" id="err"></div>
+    <div class="err" id="err" hidden></div>
   </section>
 
-  <section id="viewGame" class="hidden">
-    <div class="gamebar">
-      <span class="lvname" id="lvName"></span>
-      <span class="spacer"></span>
-      <span class="readout dim" id="moves"></span>
-      <span class="clock" id="clock">0:00</span>
-      <button class="btn" id="btnRestart" type="button" data-i18n="ui.retry">Retry</button>
-      <button class="btn ghost" id="btnToList" type="button" data-i18n="ui.toList">Level list</button>
-    </div>
-    <div class="timebar" id="timebar" data-i18n-title="ui.timeLeft"></div>
+  <section id="viewGame" class="game-only">
+    <p class="lead" id="hint"></p>
+    <div class="timebar" id="timebar" data-i18n-title="ui.timeLeft" title="Time left"></div>
     <div class="board" id="board"></div>
-    <p class="hintline" id="hint"></p>
   </section>
 </main>
 

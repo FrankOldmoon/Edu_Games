@@ -10,6 +10,7 @@ import { i18n, t, mountSwitcher } from "./i18n.js";
 import { params, createProgress, startIndex, loadBank, reportResult } from "../../../src/game-ui/progress.js";
 import { celebrate, isCelebrating } from "../../../src/game-ui/feedback.js";
 import { createCountdown, limitMs, formatClock } from "../../../src/game-ui/timer.js";
+import { renderLevelList } from "../../../src/game-ui/levels-ui.js";
 
 const GAME_ID = "slice";
 const PACKS = { en: en, "zh-CN": zhCN };
@@ -77,10 +78,10 @@ function parseSlot(str) {
   return /^[+-]?\d+$/.test(v) ? parseInt(v, 10) : null;
 }
 
+/* 视图切换：只改 body[data-view]，该显示哪半边交给 base.css 的
+   .list-only / .game-only 决定，和 spot-the-difference 一致。 */
 function show(view) {
   document.body.dataset.view = view;
-  el("viewList").classList.toggle("hidden", view !== "list");
-  el("viewGame").classList.toggle("hidden", view !== "game");
 }
 
 let statusState = null;
@@ -98,32 +99,18 @@ function renderList() {
   el("lead").innerHTML = t("ui.lead", { n: levels.length });
   el("progText").textContent = t("ui.progress", { done: prog.count(), total: levels.length });
 
-  const box = el("levels");
-  box.innerHTML = "";
-  levels.forEach(function (lv, i) {
-    const unlocked = prog.isUnlocked(i);
-    const done = prog.has(lv.id);
-
-    const b = document.createElement("button");
-    b.type = "button";
-    b.className = "level" + (done ? " is-done" : "");
-    b.disabled = !unlocked;
-
-    const no = document.createElement("div");
-    no.className = "no";
-    no.textContent = t("ui.levelNo", { n: i + 1 });
-
-    const ttl = document.createElement("div");
-    ttl.className = "ttl";
-    ttl.textContent = lvText(lv, "title");
-
-    const st = document.createElement("div");
-    st.className = "st";
-    st.textContent = done ? t("ui.done") : (unlocked ? t("ui.start") : t("ui.locked"));
-
-    b.append(no, ttl, st);
-    b.addEventListener("click", function () { startLevel(i); });
-    box.appendChild(b);
+  renderLevelList({
+    host: el("levels"),
+    levels: levels.map(function (lv) {
+      return { id: lv.id, name: lvText(lv, "title"), tip: lvText(lv, "tip") };
+    }),
+    done: levels.filter(function (lv) { return prog.has(lv.id); }).map(function (lv) { return lv.id; }),
+    isOpen: function (i) { return prog.isUnlocked(i); },
+    onPick: startLevel,
+    labelNo: function (i) { return t("ui.levelNo", { n: i + 1 }); },
+    labelDone: t("ui.done"),
+    labelStart: t("ui.start"),
+    labelLocked: t("ui.locked"),
   });
 }
 
@@ -404,7 +391,7 @@ async function boot() {
     try {
       levels = await loadBank("./levels.json");
     } catch (e) {
-      el("err").classList.remove("hidden");
+      el("err").hidden = false;
       el("err").textContent = t("ui.loadFailed", { msg: e.message });
       return;
     }

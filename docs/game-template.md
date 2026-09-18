@@ -26,6 +26,44 @@ games/<id>/
 ## 1. 入口与视图
 
 一个 HTML 入口，`<body data-view="list">` / `data-view="game"` 切两个视图，不换页。
+`show(view)` 只改 `body.dataset.view`，显示哪半边交给 `base.css` 的
+`body[data-view] .list-only / .game-only` —— 不要再手动 toggle `hidden`。
+
+**顶栏只有一条**，里面的元素按 `list-only` / `game-only` 各归各位，
+这样两个视图和 `spot-the-difference` 的列表页 / 游戏页逐项对得上：
+
+```html
+<header class="bar">
+  <button class="back game-only" id="btnToList" data-i18n="ui.toList">← Level list</button>
+  <span class="brand list-only" data-i18n="ui.appTitle">…</span>
+  <span class="lvname game-only" id="lvName"></span>
+  <span class="progress list-only" id="progText"></span>
+  <span class="spacer"></span>
+  <span id="lang"></span>
+  <span class="clock game-only" id="clock">0:00</span>
+  <span class="counter game-only" id="counter"></span>
+  <button class="btn list-only" id="btnReset" data-i18n="ui.reset">Reset progress</button>
+  <button class="btn game-only" id="btnRetry" data-i18n="ui.retry">Retry</button>
+  <!-- 本游戏特有的按钮接在最后 -->
+</header>
+
+<main>
+  <section id="viewList" class="list-only">
+    <p class="lead" id="lead"></p>
+    <div class="levels" id="levels"></div>
+    <div class="err" id="err" hidden></div>
+  </section>
+  <section id="viewGame" class="game-only">
+    <p class="lead" id="tip"></p>
+    <div class="timebar" id="timebar"></div>
+    <!-- 本游戏特有的面板 -->
+  </section>
+</main>
+```
+
+列表视图 = 游戏名 + 进度 + 语言 + 重置；游戏视图 = 返回 + 关卡名 + 语言 + 计时 + 读数 + 操作。
+顺序不要改，改了就不齐了。
+
 `vite.config.js`：
 
 ```js
@@ -123,19 +161,28 @@ reportResult("<id>", {
 @import "../../../src/game-ui/base.css";
 ```
 
-基座提供主题变量（`--bg --panel --panel-2 --line --line-2 --text --dim --accent --green --red --gold --mono`）
-和公共组件（`.bar .brand .back .spacer .readout .btn .panel .lead .celebrate`）。只写本游戏特有的部分。
+基座提供主题变量（`--bg --panel --panel-2 --line --line-2 --text --dim --accent --green --red --gold --mono`）、
+顶栏与按钮（`.bar .brand .back .spacer .readout .progress .lvname .counter .btn`）、
+布局（`main` 的 1180px 居中 + `fadeIn`、`.lead .panel`、`body[data-view] .list-only / .game-only`）、
+关卡卡片（`.levels / .lv` 三态 + `--i` 错开浮入）、倒计时、报错、通关卡。
+游戏自己的 CSS 只写本游戏特有的部分，不要重写上面任何一条。
 
 共享 JS：
+- `src/game-ui/levels-ui.js` 的 `renderLevelList({host, levels, done, isOpen, hrefFor, onPick, labelNo, labelDone, labelStart, labelLocked})`
+  —— **关卡列表只有这一种画法**，多页式传 `hrefFor` 出 `<a>`、单页式传 `onPick` 出 `<button>`，
+  两者外观一致，`--i` 依次浮现的顺序也在里面。不要在游戏里再手写一遍卡片标记。
+  关卡文案（`name` / `tip`）由调用方按语言包组装好再传进来。
 - `src/game-ui/feedback.js` 的 `celebrate({title, lines, actionLabel, onAction, onDismiss})` —— 半透明通关卡，不会自动消失；
   默认会放一轮 **通关烟花**（`src/game-ui/fireworks.js` 的 `launchFireworks`），不要就传 `fireworks: false`
 - `src/game-ui/timer.js` 的 `createCountdown({el, bar, label, onTick, onExpire})` —— 每关倒计时，
-  数字胶囊和 slider 进度条都在里面；`bar:` 传一个空容器，填充条和滑块由它生成并驱动。
+  数字胶囊（`.clock`）和 slider 进度条（`.timebar`）都在里面；`bar:` 传一个空容器，填充条和滑块由它生成并驱动。
   配套 `limitMs(level, unit, base, per)` 把关卡库里的 `timer: {base, per}` 换算成毫秒
 - `src/game-ui/progress.js` —— 参数、进度、关卡库加载、回传
 
 ## 7. 体验底线
 
+- **关卡列表和其它 Python 游戏长得一模一样**：同样的 `main` 宽度、同样的顶栏、同样的卡片，
+  卡片依次浮现（`--i` × 38ms）也是自动的 —— 一律走 `renderLevelList`，不要自己再画一套。
 - **每关都有计时，而且是两份**：数字（`.clock` 胶囊）+ slider 进度条（`.timebar`，轨道 + 填充 + 圆钮），
   两个都交给 `createCountdown`，不在游戏里各写一遍。剩不到 10 秒两份一起变红，被扣时间一起闪。
   限时规则写进关卡库的 `timer: {base, per}`，`unit` 是这个游戏自己的单位（对数 / 行数 / 项数 / 步数上限），

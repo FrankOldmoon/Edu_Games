@@ -6,64 +6,17 @@
 
 @import "../../../src/game-ui/base.css";
 
-:root {
-  --bg: #0f1117;
-  --panel: #171a23;
-  --panel-2: #1b2030;
-  --line: #262a36;
-  --text: #e6e8ee;
-  --dim: #8a90a0;
-  --dim-2: #6b7280;
-  --accent: #4a7cff;
-  --green: #22c55e;
-  --red: #ef4444;
-  --gold: #ffd166;
-  --mono: ui-monospace, SFMono-Regular, "JetBrains Mono", Consolas, Monaco, monospace;
-}
+/* 主题变量、reset、顶栏（.bar / .brand / .spacer / .back / .lvname /
+   .progress / .counter / .btn）、关卡列表（.levels / .lv）、报错框（.err）、
+   倒计时（.clock / .timebar）、通关卡与烟花画布，全部在
+   src/game-ui/base.css —— 所有 Python 教育游戏共用同一套。 */
 
-* { box-sizing: border-box; }
-
-html, body {
-  margin: 0;
-  background: var(--bg);
-  color: var(--text);
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang SC", "Microsoft YaHei", sans-serif;
-}
-
-a { color: inherit; text-decoration: none; }
-
-/* ------------------------------- 顶栏 ------------------------------- */
-.bar {
-  display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
-  padding: 12px 20px; border-bottom: 1px solid var(--line); background: #12151f;
-  position: sticky; top: 0; z-index: 5;
-}
-.brand { font-size: 15px; font-weight: 700; letter-spacing: .2px; }
-.spacer { flex: 1; }
-.back { font-size: 13px; color: var(--dim); }
-.back:hover { color: var(--text); }
-.lvname { font-family: var(--mono); font-size: 13px; color: var(--dim); }
-.counter { display: inline-block; font-family: var(--mono); font-size: 13px; color: var(--gold); }
+/* 计数器命中时弹一下：只有本游戏用 */
 .counter.bump { animation: bump .34s cubic-bezier(.2, 1.6, .4, 1); }
 @keyframes bump { 0% { transform: scale(1); } 45% { transform: scale(1.22); } 100% { transform: scale(1); } }
-.progress { font-family: var(--mono); font-size: 13px; color: var(--dim); }
 
-/* 倒计时胶囊（.clock / .clock.low / .clock.hit）现在是所有游戏共用的，
+/* 倒计时胶囊（.clock）和进度条（.timebar）现在是所有游戏共用的，
    样式在 src/game-ui/base.css —— 见文件开头那行 @import。 */
-
-.btn {
-  font: inherit; font-size: 13px; font-weight: 600; padding: 6px 14px; border-radius: 8px;
-  cursor: pointer; border: 1px solid var(--line); background: #232838; color: #c7d1ee;
-  transition: background .15s, color .15s;
-}
-.btn:hover { background: #2c3346; color: #fff; }
-.btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
-.btn.primary:hover { background: #5f8bff; }
-.btn:disabled { opacity: .4; cursor: not-allowed; }
-
-main { max-width: 1180px; margin: 0 auto; padding: 22px 20px 60px; animation: fadeIn .28s ease-out backwards; }
-.lead { margin: 0 0 18px; color: var(--dim); font-size: 14px; line-height: 1.75; }
-.lead b { color: var(--text); }
 
 /* ------------------------------ 代码面板 ----------------------------- */
 /* 代码上方那条倒计时进度条（.timebar：轨道 + 填充 + 圆钮）现在也是所有游戏
@@ -153,35 +106,8 @@ main { max-width: 1180px; margin: 0 auto; padding: 22px 20px 60px; animation: fa
 }
 
 /* ------------------------------- 关卡列表 ---------------------------- */
-.levels { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 16px; }
-.lv {
-  position: relative; display: block; padding: 16px; border-radius: 12px;
-  border: 1px solid var(--line); background: var(--panel);
-  transition: transform .16s, border-color .16s, box-shadow .16s;
-  animation: riseIn .32s ease-out backwards;            /* backwards：动画结束后交还给 hover 的 transform */
-  animation-delay: calc(var(--i, 0) * 38ms);
-}
-@keyframes riseIn {
-  from { opacity: 0; transform: translateY(10px); }
-  to { opacity: 1; transform: none; }
-}
-.lv.done { border-color: rgba(34, 197, 94, .32); }
-.lv.done::before {
-  content: ""; position: absolute; left: 0; top: 15px; bottom: 15px; width: 3px;
-  border-radius: 3px; background: var(--green); box-shadow: 0 0 10px rgba(34, 197, 94, .5);
-}
-.lv:not(.locked):hover {
-  transform: translateY(-3px); border-color: var(--accent);
-  box-shadow: 0 12px 26px rgba(74, 124, 255, .16);
-}
-.lv .num { font-family: var(--mono); font-size: 12px; color: var(--dim); }
-.lv .nm { font-size: 15px; font-weight: 600; margin: 6px 0 4px; }
-.lv .tp { font-size: 12.5px; color: var(--dim); line-height: 1.6; }
-.lv .st { margin-top: 10px; font-size: 12px; font-weight: 600; }
-.lv.done .st { color: var(--green); }
-.lv.locked { opacity: .5; cursor: not-allowed; }
-.lv.locked .st { color: var(--dim-2); }
-.lv.open .st { color: var(--accent); }
+/* 关卡列表（.levels / .lv 及三态、依次浮入的 riseIn）也是共用的，
+   标记由 src/game-ui/levels-ui.js 生成，样式在 base.css。 */
 
 /* -------------------------------- 提示 ------------------------------ */
 .hintbox {
@@ -191,21 +117,12 @@ main { max-width: 1180px; margin: 0 auto; padding: 22px 20px 60px; animation: fa
 }
 .hintbox.good { border-style: solid; border-color: rgba(34, 197, 94, .35); color: var(--green); }
 .hintbox.bad { border-style: solid; border-color: rgba(239, 68, 68, .4); color: #ffb4b4; }
-.err {
-  margin-top: 18px; padding: 14px 16px; border-radius: 10px;
-  border: 1px solid #5b2b33; background: #2a1619; color: #ffb4b4;
-  font-size: 13.5px; line-height: 1.75; white-space: pre-wrap;
-}
+/* .err 也在 base.css 里 */
 .center { text-align: center; margin-top: 26px; }
 
 /* ------------------------------ 通关庆祝 ----------------------------- */
 
-/* 铺满视口的烟花画布：pointer-events 关掉，点击穿过它落到遮罩上。
-   z-index 夹在遮罩（50）和成绩卡（60）之间：火花飞在压暗的背景上，但不会盖住卡片上的字。 */
-.fx-canvas {
-  position: fixed; inset: 0; width: 100%; height: 100%;
-  pointer-events: none; z-index: 55;
-}
+/* 铺满视口的烟花画布（.fx-canvas，z-index 夹在遮罩和成绩卡之间）也在 base.css 里 */
 
 /* 半透明遮罩：后面的代码还看得见，只是压暗一层，表示"这里在等一个动作" */
 .celebrate {
@@ -233,7 +150,7 @@ main { max-width: 1180px; margin: 0 auto; padding: 22px 20px 60px; animation: fa
   from { opacity: 0; transform: scale(.86); }
   to { opacity: 1; transform: scale(1); }
 }
-@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+/* fadeIn 也在 base.css 里 */
 
 .celebrate-check {
   width: 54px; height: 54px; margin: 0 auto 12px; border-radius: 50%;
@@ -263,17 +180,4 @@ main { max-width: 1180px; margin: 0 auto; padding: 22px 20px 60px; animation: fa
   64% { transform: translateX(6px); }
 }
 
-/* ------------------------------ 可用性 ------------------------------- */
-
-.btn:focus-visible, .back:focus-visible, .lv:focus-visible {
-  outline: 2px solid var(--accent); outline-offset: 2px;
-}
-
-/* 系统开了"减少动态效果"就把动画都停掉，状态切换仍然是即时的 */
-@media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after {
-    animation-duration: .001ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: .001ms !important;
-  }
-}
+/* :focus-visible 描边和 prefers-reduced-motion 兜底都在 base.css 里，所有游戏一致。 */

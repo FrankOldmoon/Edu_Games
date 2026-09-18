@@ -4,6 +4,7 @@
 
 import { t, i18n, mountSwitcher } from "./i18n.js";
 import { loadLevels, localizeLevels, readProgress, unlockedCount, resetProgress, allUnlocked } from "./levels.js";
+import { renderLevelList } from "../../../src/game-ui/levels-ui.js";
 
 const $ = (id) => document.getElementById(id);
 
@@ -31,40 +32,18 @@ function render() {
 
   $("progress").textContent = t("ui.progress", { done: finished, total: levels.length });
 
-  const box = $("levels");
-  box.innerHTML = "";
-
-  levels.forEach(function (lv, i) {
-    const n = i + 1;
-    const isDone = done.indexOf(lv.id) >= 0;
-    const isOpen = i < open;
-
-    const el = document.createElement(isOpen ? "a" : "div");
-    el.className = "lv " + (isDone ? "done" : (isOpen ? "open" : "locked"));
-    el.style.setProperty("--i", String(i));      // 依次浮入的错开顺序
-    if (isOpen) el.href = playUrl(n);
-
-    const num = document.createElement("div");
-    num.className = "num";
-    num.textContent = t("ui.levelNo", { n: n });
-
-    const nm = document.createElement("div");
-    nm.className = "nm";
-    nm.textContent = lv.name || lv.id;
-
-    const tp = document.createElement("div");
-    tp.className = "tp";
-    tp.textContent = lv.tip || "";
-
-    const st = document.createElement("div");
-    st.className = "st";
-    st.textContent = isDone ? t("ui.done") : (isOpen ? t("ui.start") : t("ui.locked"));
-
-    el.appendChild(num);
-    el.appendChild(nm);
-    el.appendChild(tp);
-    el.appendChild(st);
-    box.appendChild(el);
+  /* 列表标记统一由 src/game-ui/levels-ui.js 生成：和单页那几个游戏
+     长得一模一样，包括 --i 依次浮现的顺序。本页是多页式，所以给 hrefFor。 */
+  renderLevelList({
+    host: $("levels"),
+    levels: levels,
+    done: done,
+    isOpen: function (i) { return i < open; },
+    hrefFor: function (i) { return playUrl(i + 1); },
+    labelNo: function (i) { return t("ui.levelNo", { n: i + 1 }); },
+    labelDone: t("ui.done"),
+    labelStart: t("ui.start"),
+    labelLocked: t("ui.locked"),
   });
 }
 

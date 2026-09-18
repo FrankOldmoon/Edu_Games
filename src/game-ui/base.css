@@ -40,7 +40,12 @@ button { font: inherit; }
 }
 .brand { font-size: 15px; font-weight: 700; letter-spacing: .2px; }
 .spacer { flex: 1; }
-.back { font-size: 13px; color: var(--dim); }
+/* 返回入口：多页游戏是 <a href>，单页游戏是切视图的 <button>，
+   两者外观必须一致，所以这里把按钮的原生外观抹掉。 */
+.back {
+  appearance: none; background: none; border: 0; padding: 0;
+  font: inherit; font-size: 13px; color: var(--dim); cursor: pointer;
+}
 .back:hover { color: var(--text); }
 .readout {
   display: inline-block; font-family: var(--mono); font-size: 13px;
@@ -62,12 +67,67 @@ button { font: inherit; }
 .btn.ghost { background: transparent; }
 
 /* --------------------------------- 布局 --------------------------------- */
-main { max-width: 1080px; margin: 0 auto; padding: 20px; }
-.lead { color: var(--dim); font-size: 14px; line-height: 1.7; }
+main { max-width: 1180px; margin: 0 auto; padding: 22px 20px 60px; animation: fadeIn .28s ease-out backwards; }
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+.lead { margin: 0 0 18px; color: var(--dim); font-size: 14px; line-height: 1.75; }
 .lead b { color: var(--text); }
 .lead code { font-family: var(--mono); font-size: 13px; color: var(--gold); }
+
 .panel { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); }
 .hidden { display: none !important; }
+
+/* 顶栏里的读数字体，所有游戏一致 */
+.progress { font-family: var(--mono); font-size: 13px; color: var(--dim); }
+.lvname { font-family: var(--mono); font-size: 13px; color: var(--dim); }
+.counter { display: inline-block; font-family: var(--mono); font-size: 13px; color: var(--gold); }
+
+/* 单页游戏：列表视图和游戏视图各自该显示哪些顶栏元素 */
+body[data-view="list"] .game-only { display: none !important; }
+body[data-view="game"] .list-only { display: none !important; }
+
+/* ------------------------------ 关卡列表 ------------------------------ */
+/* 列表页唯一的卡片形态。标记由 src/game-ui/levels-ui.js 生成，
+   a / button / div 三种载体看起来完全一样。 */
+.levels { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 16px; }
+
+.lv {
+  position: relative; display: block; width: 100%; text-align: left;
+  padding: 16px; border-radius: 12px; color: inherit; font: inherit;
+  border: 1px solid var(--line); background: var(--panel);
+  transition: transform .16s, border-color .16s, box-shadow .16s;
+  animation: riseIn .32s ease-out backwards;   /* backwards：动画结束后交还给 hover 的 transform */
+  animation-delay: calc(var(--i, 0) * 38ms);   /* 依次浮入的错开顺序 */
+}
+button.lv { cursor: pointer; }
+@keyframes riseIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: none; }
+}
+.lv.done { border-color: rgba(34, 197, 94, .32); }
+.lv.done::before {
+  content: ""; position: absolute; left: 0; top: 15px; bottom: 15px; width: 3px;
+  border-radius: 3px; background: var(--green); box-shadow: 0 0 10px rgba(34, 197, 94, .5);
+}
+.lv:not(.locked):hover {
+  transform: translateY(-3px); border-color: var(--accent);
+  box-shadow: 0 12px 26px rgba(74, 124, 255, .16);
+}
+.lv .num { font-family: var(--mono); font-size: 12px; color: var(--dim); }
+.lv .nm { font-size: 15px; font-weight: 600; margin: 6px 0 4px; }
+.lv .tp { font-size: 12.5px; color: var(--dim); line-height: 1.6; }
+.lv .st { margin-top: 10px; font-size: 12px; font-weight: 600; }
+.lv.done .st { color: var(--green); }
+.lv.locked { opacity: .5; cursor: not-allowed; }
+.lv.locked .st { color: var(--dim-2); }
+.lv.open .st { color: var(--accent); }
+
+/* --------------------------------- 报错 --------------------------------- */
+.err {
+  margin-top: 18px; padding: 14px 16px; border-radius: 10px;
+  border: 1px solid #5b2b33; background: #2a1619; color: #ffb4b4;
+  font-size: 13.5px; line-height: 1.75; white-space: pre-wrap;
+}
 
 /* ----------------------------- 通关反馈弹框 ----------------------------- */
 /* 半透明遮罩 + 成绩卡；卡片自带一个主按钮，不会自动消失。
