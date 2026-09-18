@@ -1,0 +1,115 @@
+/* 新游戏的公共基座：主题变量 + 顶栏 / 按钮 / 面板 / 通关反馈。
+   游戏自己的 assets/style.css 第一行 @import 这个文件，只再写本游戏特有的部分。
+   配色沿用站点首页那套深色，和两个老游戏保持一致。 */
+
+:root {
+  --bg: #0f1117;
+  --panel: #171a23;
+  --panel-2: #1b2030;
+  --line: #262a36;
+  --line-2: #333949;
+  --text: #e6e8ee;
+  --dim: #8a90a0;
+  --dim-2: #6b7280;
+  --accent: #4a7cff;
+  --green: #22c55e;
+  --red: #ef4444;
+  --gold: #ffd166;
+  --mono: ui-monospace, SFMono-Regular, "JetBrains Mono", Consolas, Monaco, monospace;
+  --radius: 12px;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang SC", "Microsoft YaHei", sans-serif;
+}
+
+a { color: inherit; text-decoration: none; }
+button { font: inherit; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* --------------------------------- 顶栏 --------------------------------- */
+.bar {
+  display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+  padding: 12px 20px; border-bottom: 1px solid var(--line); background: #12151f;
+  position: sticky; top: 0; z-index: 20;
+}
+.brand { font-size: 15px; font-weight: 700; letter-spacing: .2px; }
+.spacer { flex: 1; }
+.back { font-size: 13px; color: var(--dim); }
+.back:hover { color: var(--text); }
+.readout {
+  display: inline-block; font-family: var(--mono); font-size: 13px;
+  color: var(--gold); white-space: nowrap;
+}
+.readout.dim { color: var(--dim); }
+
+/* --------------------------------- 按钮 --------------------------------- */
+.btn {
+  appearance: none; border: 1px solid var(--line); background: var(--panel-2); color: var(--text);
+  padding: 7px 14px; border-radius: 9px; font-size: 13px; cursor: pointer;
+  transition: border-color .15s, background .15s, transform .1s;
+}
+.btn:hover:not(:disabled) { border-color: var(--line-2); }
+.btn:active:not(:disabled) { transform: translateY(1px); }
+.btn:disabled { opacity: .45; cursor: not-allowed; }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
+.btn.primary:hover:not(:disabled) { filter: brightness(1.08); }
+.btn.ghost { background: transparent; }
+
+/* --------------------------------- 布局 --------------------------------- */
+main { max-width: 1080px; margin: 0 auto; padding: 20px; }
+.lead { color: var(--dim); font-size: 14px; line-height: 1.7; }
+.lead b { color: var(--text); }
+.lead code { font-family: var(--mono); font-size: 13px; color: var(--gold); }
+.panel { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); }
+.hidden { display: none !important; }
+
+/* ----------------------------- 通关反馈弹框 ----------------------------- */
+/* 半透明遮罩 + 成绩卡；卡片自带一个主按钮，不会自动消失。
+   点遮罩或按 Esc 收掉（收掉后焦点交给调用方）。 */
+.celebrate {
+  position: fixed; inset: 0; z-index: 60;
+  background: rgba(8, 11, 19, .5); backdrop-filter: blur(2px);
+}
+.celebrate-card {
+  position: fixed; z-index: 61; left: 50%; top: 50%;
+  transform: translate(-50%, -50%);
+  min-width: 264px; max-width: min(90vw, 420px);
+  padding: 22px 26px; border-radius: 16px; text-align: center;
+  background: rgba(27, 36, 52, .93);
+  border: 1px solid var(--line-2);
+  backdrop-filter: blur(10px);
+  box-shadow: 0 24px 60px rgba(0, 0, 0, .5);
+  animation: celebrate-in .34s cubic-bezier(.18, 1.3, .42, 1);
+}
+@keyframes celebrate-in {
+  from { opacity: 0; transform: translate(-50%, -50%) scale(.92); }
+}
+.celebrate-check {
+  width: 44px; height: 44px; margin: 0 auto 10px; border-radius: 50%;
+  display: grid; place-items: center; font-size: 24px; line-height: 1;
+  color: #06210f; background: var(--green);
+  animation: check-stamp .42s cubic-bezier(.2, 1.6, .4, 1);
+}
+@keyframes check-stamp {
+  from { transform: scale(.4); opacity: 0; }
+}
+.celebrate-title { font-size: 18px; font-weight: 700; }
+.celebrate-lines {
+  margin-top: 8px; color: var(--dim); font-size: 13px; line-height: 1.9;
+  font-family: var(--mono);
+}
+.celebrate-card .btn { margin-top: 16px; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: .001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .001ms !important;
+  }
+}
