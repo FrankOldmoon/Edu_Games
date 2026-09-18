@@ -14,7 +14,8 @@
 import hljs from "highlight.js";
 import "highlight.js/styles/github-dark.css";
 
-import { celebrate } from "./fireworks.js";
+import { launchFireworks } from "../../../src/game-ui/fireworks.js";
+import { createCountdown } from "../../../src/game-ui/timer.js";
 import { t, i18n, mountSwitcher } from "./i18n.js";
 import { loadLevels, localizeLevels, markDone, readProgress, unlockedCount, allUnlocked } from "./levels.js";
 
@@ -40,9 +41,6 @@ let solved = false;
 let timedOut = false;
 let startedAt = 0;
 
-let endsAt = 0;
-let totalMs = 0;
-let tickId = null;
 let penaltyMs = PENALTY * 1000;
 let solvedLeftMs = 0;
 let hintShown = false;
@@ -68,59 +66,47 @@ function urlWith(patch) {
 }
 
 /* ------------------------------ 计时 --------------------------------- */
-function renderTimer(ms) {
-  const left = Math.max(0, ms === undefined ? endsAt - Date.now() : ms);
-  const el = $("timer");
-  el.textContent = t("ui.seconds", { n: Math.ceil(left / 1000) });
-  const low = left <= 10000;
-  el.classList.toggle("low", low);
-
-  /* 代码上方那条进度条：剩得越少填充越短，被扣时会明显往回缩 */
-  const pct = totalMs > 0 ? Math.max(0, Math.min(1, left / totalMs)) * 100 : 0;
+/* 倒计时本身交给共享的 createCountdown（src/game-ui/timer.js）：读数文案、
+   剩不到 10 秒变红心跳、被扣时闪一下、归零回调都在那边，各游戏行为一致。
+   这里只补两件本关特有的事：代码上方那条进度条，和 readout 的文案格式。 */
+function paintBar(leftMs) {
+  const total = clock.totalMs();
+  const pct = total > 0 ? Math.max(0, Math.min(1, leftMs / total)) * 100 : 0;
   const fill = $("timeFill");
   if (fill) fill.style.width = pct + "%";
   const thumb = $("timeThumb");
   if (thumb) thumb.style.left = pct + "%";
   const bar = $("timebar");
-  if (bar) bar.classList.toggle("low", low);
+  if (bar) bar.classList.toggle("low", leftMs <= 10000);
 }
 
-function tick() {
-  if (solved || timedOut) return;
-  const left = endsAt - Date.now();
-  renderTimer(left);
-  if (left <= 0) timeUp();
-}
+const clock = createCountdown({
+  el: $("timer"),
+  label: function (ms) { return t("ui.seconds", { n: Math.ceil(ms / 1000) }); },
+  onTick: paintBar,
+  onExpire: function () { timeUp(); },
+});
 
 function startTimer(ms) {
-  totalMs = ms;
-  endsAt = Date.now() + ms;
   startedAt = Date.now();
-  if (tickId) clearInterval(tickId);
-  tickId = setInterval(tick, 100);
-  renderTimer();
+  clock.start(ms);
+  paintBar(ms);
 }
 
 function stopTimer() {
-  if (tickId) { clearInterval(tickId); tickId = null; }
+  clock.stop();
 }
 
 function penalize() {
-  endsAt -= penaltyMs;
-  const el = $("timer");
-  el.classList.remove("hit");
-  void el.offsetWidth;          /* 强制回流，让动画能重新播放 */
-  el.classList.add("hit");
-  setTimeout(function () { el.classList.remove("hit"); }, 420);
+  clock.penalize(penaltyMs);
+  paintBar(clock.leftMs());
   const bar = $("timebar");
   if (bar) {
     bar.classList.remove("hit");
-    void bar.offsetWidth;
+    void bar.offsetWidth;          /* 强制回流，让动画能重新播放 */
     bar.classList.add("hit");
     setTimeout(function () { bar.classList.remove("hit"); }, 420);
   }
-  if (endsAt - Date.now() <= 0) { timeUp(); return; }
-  renderTimer();
 }
 
 /* --------------------------- 文字位置的计算 --------------------------- */
@@ -262,7 +248,7 @@ function showCelebrate() {
   veil.hidden = false;
   card.hidden = false;
   celebrateShownAt = performance.now();
-  fx = celebrate({ shells: 9 });
+  fx = launchFireworks({ shells: 9 });
   const btn = $("celebrateNext");
   if (btn) btn.focus();
 }
@@ -361,7 +347,7 @@ function labelNext() {
 function complete() {
   solved = true;
   stopTimer();
-  const left = Math.max(0, endsAt - Date.now());
+  const left = clock.leftMs();
   solvedLeftMs = left;
   markDone(source, level.id);
   reportProgress();
@@ -378,7 +364,8 @@ function timeUp() {
   if (solved || timedOut) return;
   timedOut = true;
   stopTimer();
-  renderTimer(0);
+  clock.paint(0);
+  paintBar(0);
   $("btnHint").disabled = true;
   addExtra(t("ui.timeUp", { n: Math.round(penaltyMs / 1000) }), "bad");
   $("btnRetry").hidden = false;

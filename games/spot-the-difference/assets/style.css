@@ -1,5 +1,10 @@
 /* Python 语法找不同 —— 关卡选择页与游戏页共用的样式。
-   配色沿用站点首页那套深色，免得点进来像另一个网站。 */
+   配色沿用站点首页那套深色，免得点进来像另一个网站。
+
+   基座（主题变量、顶栏/按钮、倒计时胶囊、通关卡、烟花画布）来自所有游戏共用的
+   src/game-ui/base.css；下面本文件里对同名变量的重新定义会覆盖基座的值。 */
+
+@import "../../../src/game-ui/base.css";
 
 :root {
   --bg: #0f1117;
@@ -43,32 +48,8 @@ a { color: inherit; text-decoration: none; }
 @keyframes bump { 0% { transform: scale(1); } 45% { transform: scale(1.22); } 100% { transform: scale(1); } }
 .progress { font-family: var(--mono); font-size: 13px; color: var(--dim); }
 
-/* 倒计时：快没了变红，被扣时间时闪一下 */
-.timer {
-  display: inline-block;                 /* inline 元素上的 transform 不生效，得撑成块 */
-  font-family: var(--mono); font-size: 13px; font-weight: 600;
-  padding: 4px 10px; border-radius: 999px;
-  color: var(--green); background: rgba(34, 197, 94, .1);
-  border: 1px solid rgba(34, 197, 94, .3);
-  white-space: nowrap;
-  transition: color .2s, background .2s, border-color .2s;
-}
-.timer.low {
-  color: var(--red); background: rgba(239, 68, 68, .12);
-  border-color: rgba(239, 68, 68, .35);
-  animation: heartbeat 1s ease-in-out infinite;
-}
-@keyframes heartbeat {
-  0%, 100% { transform: scale(1); }
-  14% { transform: scale(1.07); }
-  28% { transform: scale(1); }
-}
-.timer.hit { animation: penalize .42s ease-out; }
-@keyframes penalize {
-  0% { transform: scale(1); }
-  30% { transform: scale(1.18); background: rgba(239, 68, 68, .3); }
-  100% { transform: scale(1); }
-}
+/* 倒计时胶囊（.clock / .clock.low / .clock.hit）现在是所有游戏共用的，
+   样式在 src/game-ui/base.css —— 见文件开头那行 @import。 */
 
 .btn {
   font: inherit; font-size: 13px; font-weight: 600; padding: 6px 14px; border-radius: 8px;

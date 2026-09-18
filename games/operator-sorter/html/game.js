@@ -19,6 +19,15 @@
 import Phaser from "phaser";
 import SORTER_DATA from "./decks.js";
 import { i18n, mountSwitcher } from "./i18n.js";
+import { launchFireworks } from "../../../src/game-ui/fireworks.js";
+
+/* 过关烟花：所有游戏共用的那一套（src/game-ui/fireworks.js）。
+   接在自己那个 sorter:complete 事件上，只有全部送对才放。
+   烟花是浮在画布上方的一层，不动 Phaser，也不影响里面那套结算界面。 */
+window.addEventListener("sorter:complete", function (e) {
+  var d = (e && e.detail) || null;
+  if (d && d.total && d.correct === d.total) launchFireworks({ shells: 8 });
+});
 
 (function () {
   'use strict';
