@@ -129,13 +129,15 @@ reportResult("<id>", {
 共享 JS：
 - `src/game-ui/feedback.js` 的 `celebrate({title, lines, actionLabel, onAction, onDismiss})` —— 半透明通关卡，不会自动消失；
   默认会放一轮 **通关烟花**（`src/game-ui/fireworks.js` 的 `launchFireworks`），不要就传 `fireworks: false`
-- `src/game-ui/timer.js` 的 `createCountdown({el, label, onTick, onExpire})` —— 每关倒计时，
+- `src/game-ui/timer.js` 的 `createCountdown({el, bar, label, onTick, onExpire})` —— 每关倒计时，
+  数字胶囊和 slider 进度条都在里面；`bar:` 传一个空容器，填充条和滑块由它生成并驱动。
   配套 `limitMs(level, unit, base, per)` 把关卡库里的 `timer: {base, per}` 换算成毫秒
 - `src/game-ui/progress.js` —— 参数、进度、关卡库加载、回传
 
 ## 7. 体验底线
 
-- **每关都有计时**：用 `createCountdown`，样式一律用基座的 `.clock`（剩不到 10 秒变红心跳）。
+- **每关都有计时，而且是两份**：数字（`.clock` 胶囊）+ slider 进度条（`.timebar`，轨道 + 填充 + 圆钮），
+  两个都交给 `createCountdown`，不在游戏里各写一遍。剩不到 10 秒两份一起变红，被扣时间一起闪。
   限时规则写进关卡库的 `timer: {base, per}`，`unit` 是这个游戏自己的单位（对数 / 行数 / 项数 / 步数上限），
   这样规则在数据里、老师能改。超时就把出问题的区域加上 `.failed`、给出重试，并把 `timedOut: true` 回传。
 - 失败要给出**信息**（哪里错了、该看什么），不是只说「错了」；超时干脆把正确答案摆出来

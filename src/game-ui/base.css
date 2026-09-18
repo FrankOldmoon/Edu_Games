@@ -134,6 +134,35 @@ main { max-width: 1080px; margin: 0 auto; padding: 20px; }
   100% { transform: scale(1); }
 }
 
+/* 剩余时间的另一副面孔：一条会缩的滑块（数字那份在 .clock 胶囊里）。
+   结构由 src/game-ui/timer.js 生成：.timebar > .track > .fill，另有 .timebar > .thumb */
+.timebar { position: relative; margin: 0 0 16px; padding: 6px 0; }
+.timebar .track {
+  height: 8px; border-radius: 999px; background: #232838;
+  border: 1px solid var(--line); overflow: hidden;
+}
+.timebar .fill {
+  height: 100%; width: 100%; border-radius: 999px;
+  background: linear-gradient(90deg, #1f9d55, var(--green));
+  transition: width .12s linear, background .2s;
+}
+.timebar .thumb {
+  position: absolute; top: 50%; left: 100%;
+  width: 16px; height: 16px; margin: -8px 0 0 -8px; border-radius: 50%;
+  background: #fff; border: 2px solid var(--green);
+  box-shadow: 0 1px 6px rgba(0, 0, 0, .45);
+  transition: left .12s linear, border-color .2s;
+}
+.timebar.low .fill { background: linear-gradient(90deg, #b91c1c, var(--red)); }
+.timebar.low .thumb { border-color: var(--red); }
+.timebar.hit .fill { animation: drain .42s ease-out; }
+
+@keyframes drain {
+  0% { filter: brightness(1); }
+  35% { filter: brightness(1.9); }
+  100% { filter: brightness(1); }
+}
+
 /* 时间到：把出问题的区域圈红再晃一下 */
 .failed { animation: shake .42s ease-in-out; box-shadow: 0 0 0 2px rgba(239, 68, 68, .45); }
 @keyframes shake {
