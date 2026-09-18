@@ -56,12 +56,19 @@
 .card.is-up:not(.is-matched) .front { border-color: var(--accent); }
 
 .card.is-matched { cursor: default; }
-.card.is-matched .inner { opacity: .8; }
+/* 不要在这里给 .inner 加 opacity：.inner 上有 transform-style: preserve-3d，
+   而 opacity != 1 会强制把 3D 上下文拍平，backface-visibility 随之失效 ——
+   正面会被背面盖住，配对成功的牌反而显示成 "?"。
+   配对状态只用「正面」的颜色来表达就够了。 */
 .card.is-matched .front {
-  background: rgba(34, 197, 94, .12);
-  border-color: rgba(34, 197, 94, .45);
+  background: rgba(34, 197, 94, .14);
+  border-color: rgba(34, 197, 94, .5);
   color: var(--green);
+  box-shadow: inset 0 0 0 1px rgba(34, 197, 94, .22);
 }
+/* 再兜一层：万一正面还是被背面压住，让配对的背面彻底透明，
+   这样下面那张正面照样透出来，不会看起来像"没翻开"。 */
+.card.is-matched .back { background: transparent; border-color: transparent; }
 
 .hintline { min-height: 20px; margin: 18px 0 0; text-align: center; color: var(--dim); font-size: 13px; }
 
