@@ -286,6 +286,17 @@ verbatim by [`vite.config.js`](vite.config.js), so mirrored games are served alo
 built ones, while Vite never parses or rewrites them. If the folder is missing, the build
 simply skips it, so a fresh clone builds fine.
 
+Development happens on a workstation; the server only pulls and builds:
+
+```bash
+git pull --ff-only && npm ci && npm run build
+```
+
+Prefer `npm ci` over `npm install` — it installs exactly what the lockfile pins and never
+rewrites `package-lock.json`, which keeps the working tree clean on both machines.
+`games/external/` is untracked, so it survives every pull; if it is ever missing, recreate it
+with `npm run download` (which needs `npx playwright install chromium` first).
+
 ## Caveats
 
 - The browser used by the mirror tool must be able to reach the platform;
