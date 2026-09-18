@@ -31,6 +31,10 @@ export default {
     omitted: "empty",
     nothing: "nothing — the slice came out empty",
 
+    timeLimit: "{n} s limit",
+    leftTime: "{n} s left",
+    timeUp: "Time's up — try the level again",
+
     ok: "Exactly the target!",
     wrong: "Not the target yet — look at what you collected.",
     invalid: "start, stop and step have to be whole numbers, or left empty",

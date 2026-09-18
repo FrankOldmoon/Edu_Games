@@ -29,6 +29,10 @@ export default {
     upAria: "Move line {n} up",
     downAria: "Move line {n} down",
 
+    timeLimit: "{n} s limit",
+    leftTime: "{n} s left",
+    timeUp: "Time's up — here is the right order",
+
     correctAll: "It runs — the output matches!",
     nRight: "{n} of {total} lines are in the right place",
     noneRight: "No line is in the right place yet — look for the line that has to run first",

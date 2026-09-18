@@ -9,10 +9,16 @@ import zhCN from "./locales/zh-CN.js";
 import { i18n, t, mountSwitcher } from "./i18n.js";
 import { params, createProgress, startIndex, loadBank, reportResult } from "../../../src/game-ui/progress.js";
 import { celebrate, isCelebrating } from "../../../src/game-ui/feedback.js";
+import { createCountdown, limitMs, formatClock } from "../../../src/game-ui/timer.js";
 
 const GAME_ID = "robot";
 const PACKS = { en: en, "zh-CN": zhCN };
 const el = function (id) { return document.getElementById(id); };
+
+/* 每关限时 = BASE + PER_STEP × 步数上限（关卡库里的 timer 可以覆盖）。
+   默认：25 秒垫底 + 每步 6 秒 —— 上限 7 步的关 67 秒，20 步的大关 145 秒。 */
+const TIME_BASE = 25;
+const TIME_PER_STEP = 6;
 
 const CELL = 46;
 const DIRS = { E: [1, 0], S: [0, 1], W: [-1, 0], N: [0, -1] };
@@ -27,6 +33,8 @@ let runState = null;
 let running = false;
 let runTimer = null;
 let statusState = null;
+let clock = null;
+let timedOut = false;
 let epoch = 0;   /* 换关/改程序/复位都加一，让在跑的定时器作废 */
 
 /* ------------------------------ 文案取值 ------------------------------ */
@@ -135,9 +143,22 @@ function startLevel(i) {
   };
   el("lvName").textContent = t("ui.levelNo", { n: i + 1 }) + " · " + lvText(lv, "title");
   el("tip").textContent = lvText(lv, "tip");
+  document.querySelector(".wrap").classList.remove("failed");
+  setControlsEnabled(true);
   buildBoard();
   rewound();
   show("game");
+  timedOut = false;
+  clock.start(limitMs(lv, lv.max || 0, TIME_BASE, TIME_PER_STEP));
+}
+
+/* 时间到之后把控制都锁住：用 disabled 而不是静默忽略点击，玩家看得见 */
+function setControlsEnabled(on) {
+  el("btnRun").disabled = !on;
+  el("btnStep").disabled = !on;
+  Array.prototype.forEach.call(el("palette").querySelectorAll("button"), function (b) {
+    b.disabled = !on;
+  });
 }
 
 function rewound() {
@@ -313,9 +334,11 @@ function planSteps() {
 
 function renderBudget() {
   const max = game.level.max;
+  const limit = Math.round(limitMs(game.level, max, TIME_BASE, TIME_PER_STEP) / 1000);
   el("steps").textContent = t("ui.budget", { used: runState.step, max: max });
   el("budget").textContent = t("ui.plan", { n: planSteps() }) +
-    " · " + t("ui.bestLine", { best: game.level.best });
+    " · " + t("ui.bestLine", { best: game.level.best }) +
+    " · " + t("ui.timeLimit", { n: limit });
 }
 
 /* ------------------------------- 解释执行 ------------------------------- */
@@ -426,7 +449,7 @@ function stepOnce() {
 }
 
 function doRun() {
-  if (running) return;
+  if (running || timedOut) return;
   if (!game.program.length) {
     setStatus("ui.needProgram");
     return;
@@ -447,6 +470,7 @@ function doRun() {
 
 function win() {
   stopRun();
+  clock.stop();
   runState.done = true;
   setStatus(null);
 
@@ -455,7 +479,9 @@ function win() {
   const steps = runState.step;
   const best = game.level.best || steps;
   const max = game.level.max || steps;
+  const left = clock.leftSeconds();
 
+  document.querySelector(".wrap").classList.remove("failed");
   prog.mark(game.level.id);
   reportResult(GAME_ID, {
     level: index + 1,
@@ -466,17 +492,23 @@ function win() {
     rate: Math.min(1, best / steps),
     progress: prog.ratio(),
     finished: last,
+    timedOut: false,
     locale: i18n.getLocale(),
     steps: steps,
     best: best,
     max: max,
+    timeLeft: left,
   });
   renderList();
 
   const stars = steps <= best ? 3 : steps <= best + 3 ? 2 : 1;
   celebrate({
     title: t("ui.win"),
-    lines: [t("star" + stars), t("ui.winLine", { steps: steps, best: best })],
+    lines: [
+      t("star" + stars),
+      t("ui.winLine", { steps: steps, best: best }),
+      t("ui.leftTime", { n: left }),
+    ],
     actionLabel: last ? t("ui.allDone") : t("ui.next"),
     onAction: function () {
       if (last) toList();
@@ -485,8 +517,34 @@ function win() {
   });
 }
 
+/* 时间到：停掉还在跑的执行、锁住控制、圈红工作区并报到 */
+function timeUp() {
+  if (!game || timedOut) return;
+  timedOut = true;
+  stopRun();
+  setControlsEnabled(false);
+  document.querySelector(".wrap").classList.add("failed");
+  setStatus("ui.timeUp");
+  reportResult(GAME_ID, {
+    level: game.index + 1,
+    levelId: game.level.id,
+    levelTitle: lvText(game.level, "title"),
+    correct: 0,
+    total: game.level.max || 0,
+    rate: 0,
+    progress: prog.ratio(),
+    finished: false,
+    timedOut: true,
+    locale: i18n.getLocale(),
+    steps: runState ? runState.step : 0,
+    best: game.level.best,
+    max: game.level.max,
+  });
+}
+
 function toList() {
   stopRun();
+  clock.stop();
   game = null;
   runState = null;
   renderList();
@@ -510,6 +568,7 @@ function relocalize() {
 async function boot() {
   mountSwitcher();
   i18n.onChange(relocalize);
+  clock = createCountdown({ el: el("clock"), onExpire: timeUp });
 
   if (params().json) {
     try {
@@ -532,7 +591,7 @@ async function boot() {
 
   el("palette").addEventListener("click", function (e) {
     const btn = e.target.closest ? e.target.closest("button[data-op]") : null;
-    if (!btn || !game) return;
+    if (!btn || !game || timedOut) return;
     game.program.push({ op: btn.getAttribute("data-op"), n: 1 });
     epoch += 1;
     rewound();
@@ -540,7 +599,7 @@ async function boot() {
 
   el("btnRun").addEventListener("click", doRun);
   el("btnStep").addEventListener("click", function () {
-    if (!game || running) return;
+    if (!game || running || timedOut) return;
     if (!game.program.length) {
       setStatus("ui.needProgram");
       return;

@@ -29,6 +29,10 @@ export default {
     upAria: "把第 {n} 行上移",
     downAria: "把第 {n} 行下移",
 
+    timeLimit: "限时 {n} 秒",
+    leftTime: "剩余 {n} 秒",
+    timeUp: "时间到 —— 这是正确的顺序",
+
     correctAll: "跑通了，输出一致！",
     nRight: "{n} / {total} 行位置正确",
     noneRight: "还没有一行在正确位置 —— 先找那个必须先执行的行",

@@ -9,14 +9,22 @@ import zhCN from "./locales/zh-CN.js";
 import { i18n, t, mountSwitcher } from "./i18n.js";
 import { params, createProgress, startIndex, loadBank, reportResult } from "../../../src/game-ui/progress.js";
 import { celebrate, isCelebrating } from "../../../src/game-ui/feedback.js";
+import { createCountdown, limitMs, formatClock } from "../../../src/game-ui/timer.js";
 
 const GAME_ID = "slice";
 const PACKS = { en: en, "zh-CN": zhCN };
 const el = function (id) { return document.getElementById(id); };
 
+/* 每关限时 = BASE + PER_ITEM × 列表长度（关卡库里的 timer 可以覆盖）。
+   默认：20 秒垫底 + 每项 12 秒 —— 4 项 68 秒，8 项 116 秒。 */
+const TIME_BASE = 20;
+const TIME_PER_ITEM = 12;
+
 let levels = bank.levels || bank;
 let prog = null;
 let game = null;
+let clock = null;
+let timedOut = false;
 
 /* 每换一关、每改一次参数、每发射一次都加一。
    定时器回调拿发射时的编号比对，对不上就自己作废 ——
@@ -67,11 +75,6 @@ function parseSlot(str) {
   const v = String(str).trim();
   if (v === "") return "";
   return /^[+-]?\d+$/.test(v) ? parseInt(v, 10) : null;
-}
-
-function fmtTime(ms) {
-  const s = Math.max(0, Math.floor(ms / 1000));
-  return Math.floor(s / 60) + ":" + String(s % 60).padStart(2, "0");
 }
 
 function show(view) {
@@ -140,18 +143,30 @@ function startLevel(i) {
   };
 
   el("lvName").textContent = t("ui.levelNo", { n: i + 1 }) + " · " + lvText(lv, "title");
-  el("tip").textContent = lvText(lv, "tip");
   el("listName").textContent = game.name;
   el("start").value = "";
   el("stop").value = "";
   el("step").value = "";
+  document.querySelector(".stripwrap").classList.remove("failed");
+  ["start", "stop", "step"].forEach(function (id) { el(id).disabled = false; });
+  el("btnFire").disabled = false;
 
   renderTarget();
   renderStrip();
   resetAim();
   paintExpr();
+  paintTip();
   show("game");
+  timedOut = false;
+  clock.start(limitMs(lv, (lv.items || []).length, TIME_BASE, TIME_PER_ITEM));
   el("start").focus();
+}
+
+function paintTip() {
+  if (!game) return;
+  const n = (game.items || []).length;
+  const limit = Math.round(limitMs(game.level, n, TIME_BASE, TIME_PER_ITEM) / 1000);
+  el("tip").textContent = t("ui.timeLimit", { n: limit }) + " · " + lvText(game.level, "tip");
 }
 
 function renderTarget() {
@@ -232,7 +247,7 @@ function renderTray(values, cls) {
 /* -------------------------------- 发射 -------------------------------- */
 
 function fire() {
-  if (!game || game.busy) return;
+  if (!game || game.busy || timedOut) return;
 
   const s = parseSlot(el("start").value);
   const e = parseSlot(el("stop").value);
@@ -293,12 +308,15 @@ function fire() {
 }
 
 function finish() {
+  clock.stop();
   const last = game.index === levels.length - 1;
   const index = game.index;
   const shots = game.shots;
+  const left = clock.leftSeconds();
   const seconds = Math.round((Date.now() - game.startedAt) / 1000);
   const n = game.target.length;
 
+  document.querySelector(".stripwrap").classList.remove("failed");
   prog.mark(game.level.id);
   reportResult(GAME_ID, {
     level: index + 1,
@@ -309,9 +327,11 @@ function finish() {
     rate: 1 / shots,
     progress: prog.ratio(),
     finished: last,
+    timedOut: false,
     locale: i18n.getLocale(),
     shots: shots,
     seconds: seconds,
+    timeLeft: left,
   });
   renderList();
 
@@ -319,7 +339,8 @@ function finish() {
     title: t("ui.win"),
     lines: [
       shots === 1 ? t("ui.shots1") : t("ui.shotsN", { n: shots }),
-      t("ui.winLine", { n: n, shots: shots, time: fmtTime(seconds * 1000) }),
+      t("ui.winLine", { n: n, shots: shots, time: formatClock(seconds * 1000) }),
+      t("ui.leftTime", { n: left }),
     ],
     actionLabel: last ? t("ui.allDone") : t("ui.next"),
     onAction: function () {
@@ -329,7 +350,33 @@ function finish() {
   });
 }
 
+/* 时间到：锁住三个输入框和发射键，圈红方块区并报到 */
+function timeUp() {
+  if (!game || timedOut) return;
+  timedOut = true;
+  shotEpoch += 1;                 /* 还在飞的这一发作废 */
+
+  ["start", "stop", "step"].forEach(function (id) { el(id).disabled = true; });
+  el("btnFire").disabled = true;
+  document.querySelector(".stripwrap").classList.add("failed");
+  setStatus("ui.timeUp");
+  reportResult(GAME_ID, {
+    level: game.index + 1,
+    levelId: game.level.id,
+    levelTitle: lvText(game.level, "title"),
+    correct: 0,
+    total: Math.max(1, game.items.length),
+    rate: 0,
+    progress: prog.ratio(),
+    finished: false,
+    timedOut: true,
+    locale: i18n.getLocale(),
+    shots: game.shots,
+  });
+}
+
 function toList() {
+  clock.stop();
   game = null;
   renderList();
   show("list");
@@ -341,7 +388,7 @@ function relocalize() {
   renderList();
   if (!game) return;
   el("lvName").textContent = t("ui.levelNo", { n: game.index + 1 }) + " · " + lvText(game.level, "title");
-  el("tip").textContent = lvText(game.level, "tip");
+  paintTip();
   paintExpr();
   if (statusState) setStatus(statusState.key, statusState.vars);
 }
@@ -351,6 +398,7 @@ function relocalize() {
 async function boot() {
   mountSwitcher();
   i18n.onChange(relocalize);
+  clock = createCountdown({ el: el("clock"), onExpire: timeUp });
 
   if (params().json) {
     try {

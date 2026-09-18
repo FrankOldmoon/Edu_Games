@@ -31,6 +31,10 @@ export default {
     omitted: "空",
     nothing: "什么都没有 —— 这个切片是空的",
 
+    timeLimit: "限时 {n} 秒",
+    leftTime: "剩余 {n} 秒",
+    timeUp: "时间到 —— 重来一关吧",
+
     ok: "完全命中目标！",
     wrong: "还不是目标 —— 看看你实际拿到了什么。",
     invalid: "start、stop、step 必须是整数，或者留空",

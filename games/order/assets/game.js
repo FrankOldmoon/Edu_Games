@@ -9,14 +9,22 @@ import zhCN from "./locales/zh-CN.js";
 import { i18n, t, mountSwitcher } from "./i18n.js";
 import { params, createProgress, startIndex, loadBank, reportResult } from "../../../src/game-ui/progress.js";
 import { celebrate, isCelebrating } from "../../../src/game-ui/feedback.js";
+import { createCountdown, limitMs, formatClock } from "../../../src/game-ui/timer.js";
 
 const GAME_ID = "order";
 const PACKS = { en: en, "zh-CN": zhCN };
 const el = function (id) { return document.getElementById(id); };
 
+/* 每关限时 = BASE + PER_LINE × 行数（关卡库里的 timer 可以覆盖）。
+   默认：15 秒垫底 + 每行 15 秒 —— 3 行 60 秒，9 行的冒泡排序 150 秒。 */
+const TIME_BASE = 15;
+const TIME_PER_LINE = 15;
+
 let levels = bank.levels || bank;
 let prog = null;
 let game = null;
+let clock = null;
+let timedOut = false;
 let dragFrom = -1;
 
 /* ------------------------------ 文案取值 ------------------------------ */
@@ -34,11 +42,6 @@ function lvText(lv, field) {
 }
 
 /* -------------------------------- 工具 -------------------------------- */
-
-function fmtTime(ms) {
-  const s = Math.max(0, Math.floor(ms / 1000));
-  return Math.floor(s / 60) + ":" + String(s % 60).padStart(2, "0");
-}
 
 function hashStr(str) {
   let h = 2166136261;
@@ -142,14 +145,24 @@ function startLevel(i) {
     startedAt: Date.now(),
   };
   el("lvName").textContent = t("ui.levelNo", { n: i + 1 }) + " · " + lvText(lv, "title");
-  el("tip").textContent = lvText(lv, "tip");
   el("goal").textContent = lv.output || "";
   el("stdin").textContent = lv.stdin || "";
   el("stdinBox").classList.toggle("hidden", !lv.stdin);
   el("consoleBox").classList.add("hidden");
+  document.querySelector(".wrap").classList.remove("failed");
   setStatus(null);
+  paintTip();
   renderRows();
   show("game");
+  timedOut = false;
+  clock.start(limitMs(lv, (lv.lines || []).length, TIME_BASE, TIME_PER_LINE));
+}
+
+function paintTip() {
+  if (!game) return;
+  const n = (game.level.lines || []).length;
+  const limit = Math.round(limitMs(game.level, n, TIME_BASE, TIME_PER_LINE) / 1000);
+  el("tip").textContent = t("ui.timeLimit", { n: limit }) + " · " + lvText(game.level, "tip");
 }
 
 function renderRows() {
@@ -228,6 +241,7 @@ function markOver(pos) {
 
 /* 把第 from 个位置的元素挪到最终的第 to 个位置 */
 function moveTo(from, to) {
+  if (timedOut) return;
   if (to < 0 || to >= game.order.length || from === to) return;
   const item = game.order.splice(from, 1)[0];
   game.order.splice(to, 0, item);
@@ -238,6 +252,7 @@ function moveTo(from, to) {
 /* -------------------------------- 判定 -------------------------------- */
 
 function check() {
+  if (timedOut) return;
   const n = game.order.length;
   let inPlace = 0;
   for (let i = 0; i < n; i++) if (game.order[i] === i) inPlace += 1;
@@ -271,11 +286,14 @@ function win() {
 }
 
 function finish() {
+  clock.stop();
   const n = game.order.length;
   const last = game.index === levels.length - 1;
   const index = game.index;
+  const left = clock.leftSeconds();
   const seconds = Math.round((Date.now() - game.startedAt) / 1000);
 
+  document.querySelector(".wrap").classList.remove("failed");
   prog.mark(game.level.id);
   reportResult(GAME_ID, {
     level: index + 1,
@@ -286,10 +304,12 @@ function finish() {
     rate: 1 / game.attempts,
     progress: prog.ratio(),
     finished: last,
+    timedOut: false,
     locale: i18n.getLocale(),
     attempts: game.attempts,
     lines: n,
     seconds: seconds,
+    timeLeft: left,
   });
   renderList();
 
@@ -297,7 +317,8 @@ function finish() {
     title: t("ui.win"),
     lines: [
       game.attempts === 1 ? t("ui.attempts1") : t("ui.attemptsN", { n: game.attempts }),
-      t("ui.winLine", { lines: n, attempts: game.attempts, time: fmtTime(seconds * 1000) }),
+      t("ui.winLine", { lines: n, attempts: game.attempts, time: formatClock(seconds * 1000) }),
+      t("ui.leftTime", { n: left }),
     ],
     actionLabel: last ? t("ui.allDone") : t("ui.next"),
     onAction: function () {
@@ -307,8 +328,37 @@ function finish() {
   });
 }
 
+/* 时间到：把正确顺序直接摆出来（看清答案比停在半路有用），锁住棋盘并报到 */
+function timeUp() {
+  if (!game || timedOut) return;
+  timedOut = true;
+
+  const n = game.order.length;
+  game.order = game.order.map(function (_, i) { return i; });
+  renderRows();
+  const rows = el("lines").children;
+  for (let i = 0; i < rows.length; i++) rows[i].classList.add("is-ran");
+
+  document.querySelector(".wrap").classList.add("failed");
+  setStatus("ui.timeUp");
+  reportResult(GAME_ID, {
+    level: game.index + 1,
+    levelId: game.level.id,
+    levelTitle: lvText(game.level, "title"),
+    correct: 0,
+    total: n,
+    rate: 0,
+    progress: prog.ratio(),
+    finished: false,
+    timedOut: true,
+    locale: i18n.getLocale(),
+    attempts: game.attempts,
+    lines: n,
+  });
+}
+
 function hint() {
-  if (!game) return;
+  if (!game || timedOut) return;
   setStatus("ui.hintText", { code: game.lines[0] });
   const pos = game.order.indexOf(0);
   const rows = el("lines").children;
@@ -320,6 +370,7 @@ function hint() {
 }
 
 function toList() {
+  clock.stop();
   game = null;
   renderList();
   show("list");
@@ -331,7 +382,7 @@ function relocalize() {
   renderList();
   if (!game) return;
   el("lvName").textContent = t("ui.levelNo", { n: game.index + 1 }) + " · " + lvText(game.level, "title");
-  el("tip").textContent = lvText(game.level, "tip");
+  paintTip();
   renderRows();
   if (statusState) setStatus(statusState.key, statusState.vars);
 }
@@ -341,6 +392,7 @@ function relocalize() {
 async function boot() {
   mountSwitcher();
   i18n.onChange(relocalize);
+  clock = createCountdown({ el: el("clock"), onExpire: timeUp });
 
   if (params().json) {
     try {

@@ -10,15 +10,22 @@ import zhCN from "./locales/zh-CN.js";
 import { i18n, t, mountSwitcher } from "./i18n.js";
 import { params, createProgress, startIndex, loadBank, reportResult } from "../../../src/game-ui/progress.js";
 import { celebrate, isCelebrating } from "../../../src/game-ui/feedback.js";
+import { createCountdown, limitMs, formatClock } from "../../../src/game-ui/timer.js";
 
 const GAME_ID = "memory";
 const PACKS = { en: en, "zh-CN": zhCN };
 const el = function (id) { return document.getElementById(id); };
 
+/* 每关限时 = BASE + PER_PAIR × 对数（关卡库里的 timer 可以覆盖）。
+   默认：20 秒垫底 + 每对 12 秒 —— 4 对 68 秒，6 对 92 秒。 */
+const TIME_BASE = 20;
+const TIME_PER_PAIR = 12;
+
 let levels = bank.levels || bank;
 let prog = null;
 let game = null;
-let tick = null;
+let clock = null;
+let timedOut = false;
 
 /* 换关卡时加一。翻回去的定时器回调拿翻开时的编号比对，
    对不上就作废 —— 否则上一关那个 780ms 的回调会把新一关刚翻的牌收掉。 */
@@ -50,11 +57,6 @@ function defOf(lv, term) {
 }
 
 /* -------------------------------- 工具 -------------------------------- */
-
-function fmtTime(ms) {
-  const s = Math.max(0, Math.floor(ms / 1000));
-  return Math.floor(s / 60) + ":" + String(s % 60).padStart(2, "0");
-}
 
 function shuffled(list) {
   const a = list.slice();
@@ -130,6 +132,7 @@ function startLevel(i) {
   };
   turnEpoch += 1;
 
+  el("board").classList.remove("failed");
   paintGameChrome();
   renderBoard();
   show("game");
@@ -139,8 +142,15 @@ function startLevel(i) {
 function paintGameChrome() {
   if (!game) return;
   el("lvName").textContent = t("ui.levelNo", { n: game.index + 1 }) + " · " + lvText(game.level, "title");
-  el("hint").textContent = lvText(game.level, "tip");
   el("moves").textContent = t("ui.moves", { n: game.moves });
+
+  if (timedOut) {
+    el("hint").textContent = t("ui.timeUp");
+    return;
+  }
+  const pairs = (game.level.pairs || []).length;
+  const limit = Math.round(limitMs(game.level, pairs, TIME_BASE, TIME_PER_PAIR) / 1000);
+  el("hint").textContent = t("ui.timeLimit", { n: limit }) + " · " + lvText(game.level, "tip");
 }
 
 function renderBoard() {
@@ -180,7 +190,7 @@ function syncCards() {
   game.cards.forEach(function (c, i) {
     const b = nodes[i];
     if (!b) return;
-    const up = c.matched || game.up.indexOf(i) >= 0;
+    const up = c.matched || game.reveal || game.up.indexOf(i) >= 0;
     b.classList.toggle("is-up", up);
     b.classList.toggle("is-matched", c.matched);
     b.setAttribute("aria-label", up
@@ -190,7 +200,7 @@ function syncCards() {
 }
 
 function onCard(i) {
-  if (!game || game.busy) return;
+  if (!game || game.busy || timedOut) return;
   const c = game.cards[i];
   if (c.matched || game.up.indexOf(i) >= 0) return;
 
@@ -226,14 +236,16 @@ function onCard(i) {
 }
 
 function win() {
-  stopClock();
+  clock.stop();
   const pairs = (game.level.pairs || []).length;
+  const left = clock.leftSeconds();
   const seconds = Math.round((Date.now() - game.startedAt) / 1000);
   const stars = game.moves <= pairs * 1.6 ? 3 : game.moves <= pairs * 2.4 ? 2 : 1;
   const last = game.index === levels.length - 1;
   const index = game.index;
   const moves = game.moves;
 
+  el("board").classList.remove("failed");
   prog.mark(game.level.id);
   reportResult(GAME_ID, {
     level: index + 1,
@@ -244,10 +256,12 @@ function win() {
     rate: 1,
     progress: prog.ratio(),
     finished: last,
+    timedOut: false,
     locale: i18n.getLocale(),
     moves: moves,
     perfectMoves: pairs,
     seconds: seconds,
+    timeLeft: left,
   });
   renderList();
 
@@ -255,7 +269,8 @@ function win() {
     title: t("ui.win"),
     lines: [
       t("stars" + stars),
-      t("ui.winLine", { pairs: pairs, moves: moves, time: fmtTime(seconds * 1000) }),
+      t("ui.winLine", { pairs: pairs, moves: moves, time: formatClock(seconds * 1000) }),
+      t("ui.leftTime", { n: left }),
     ],
     actionLabel: last ? t("ui.allDone") : t("ui.next"),
     onAction: function () {
@@ -275,20 +290,36 @@ function toList() {
 /* -------------------------------- 计时 -------------------------------- */
 
 function startClock() {
-  stopClock();
-  const paint = function () {
-    if (!game) return;
-    el("clock").textContent = fmtTime(Date.now() - game.startedAt);
-  };
-  paint();
-  tick = setInterval(paint, 500);
+  const pairs = (game.level.pairs || []).length;
+  timedOut = false;
+  clock.start(limitMs(game.level, pairs, TIME_BASE, TIME_PER_PAIR));
 }
 
 function stopClock() {
-  if (tick) {
-    clearInterval(tick);
-    tick = null;
-  }
+  if (clock) clock.stop();
+}
+
+function timeUp() {
+  if (!game || timedOut) return;
+  timedOut = true;
+  game.busy = true;
+  game.reveal = true;              /* 时间到就把牌全翻开，让人看清错过了什么 */
+  el("board").classList.add("failed");
+  syncCards();
+  paintGameChrome();
+  reportResult(GAME_ID, {
+    level: game.index + 1,
+    levelId: game.level.id,
+    levelTitle: lvText(game.level, "title"),
+    correct: game.matchedCount,
+    total: (game.level.pairs || []).length,
+    rate: game.matchedCount / Math.max(1, (game.level.pairs || []).length),
+    progress: prog.ratio(),
+    finished: false,
+    timedOut: true,
+    locale: i18n.getLocale(),
+    moves: game.moves,
+  });
 }
 
 /* ------------------------------- 语言切换 ------------------------------- */
@@ -309,6 +340,7 @@ function relocalize() {
 async function boot() {
   mountSwitcher();
   i18n.onChange(relocalize);
+  clock = createCountdown({ el: el("clock"), onExpire: timeUp });
 
   if (params().json) {
     try {

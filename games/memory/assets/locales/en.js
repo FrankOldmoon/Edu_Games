@@ -25,7 +25,9 @@ export default {
     retry: "Retry",
     toList: "Level list",
     moves: "{n} moves",
-    clock: "{time}",
+    timeLimit: "{n} s limit",
+    leftTime: "{n} s left",
+    timeUp: "Time's up — here is what you missed",
 
     cardDown: "Card {n}, face down",
     cardUp: "Card {n}: {text}",
