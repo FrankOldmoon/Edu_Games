@@ -3,10 +3,11 @@
 A small collection of offline-friendly HTML5 games for learning to program, the card wall
 that serves them, and a tool for mirroring third-party HTML5 games for offline use.
 
-Six games are written here, all bilingual (English + Simplified Chinese), bundled by Vite,
+Seven games are written here, all bilingual (English + Simplified Chinese), bundled by Vite,
 and pulling their libraries from npm. They are spread deliberately across the cognitive
-ladder: recalling terms, spotting a difference, ordering a program, predicting a slice, and
-finally steering an agent with a program you assembled yourself.
+ladder: recalling terms, spotting a difference, ordering a program, predicting a slice,
+typing it out character by character, and finally steering an agent with a program you
+assembled yourself.
 
 ## The games
 
@@ -18,9 +19,10 @@ finally steering an agent with a program you assembled yourself.
 | **Slice Shot** | Predict what `start:stop:step` really selects, including negative indices and steps | [`games/slice`](games/slice) |
 | **Robot Orders** | Sequence, turning and counted repetition: drive a robot with five instructions inside a step budget | [`games/robot`](games/robot) |
 | **Operator Sorter** | Route parcels into the bin that names their Python operator (`*` → TIMES, `//` → FLOOR, …) | [`games/operator-sorter`](games/operator-sorter) |
+| **Python Code Typing** | Type real Python lines character by character — quotes, brackets, colons and indentation included; solo, or a live race in a shared room | [`games/typing`](games/typing) |
 
 Third-party games captured with the mirror tool live in `games/external/`. That folder is
-**not tracked** — a fresh clone contains only the six games above. See
+**not tracked** — a fresh clone contains only the seven games above. See
 [Mirroring third-party games](#mirroring-third-party-games) to recreate it.
 
 ## Quick start
@@ -51,9 +53,11 @@ npm run preview    # serve the built dist/
 │   ├── order/               (register them in vite.config.js and src/main.js)
 │   ├── slice/
 │   ├── robot/
+│   ├── typing/
 │   ├── spot-the-difference/ (two pages: index.html + play/index.html)
 │   ├── operator-sorter/     (Phaser, pulled from npm)
 │   └── external/            third-party mirrors — NOT tracked
+├── server/                  the typing room server (its own package.json)
 ├── index.mjs                the mirror downloader
 ├── vite.config.js           multi-page build + copies games/external into dist/
 └── package.json
@@ -67,7 +71,7 @@ and referenced by URL only.
 A new game we write should follow [`docs/game-template.md`](docs/game-template.md): one HTML
 entry, a `levels.json` carrying structure only (every readable string lives in the locale
 packs), the shared [`src/i18n`](src/i18n/index.js) runtime, the shared helpers in
-[`src/game-ui/`](src/game-ui), and the `game_result` postMessage contract. Any of the six
+[`src/game-ui/`](src/game-ui), and the `game_result` postMessage contract. Any of the seven
 games works as a worked example; [`games/memory`](games/memory) is the shortest.
 
 ## Languages
@@ -164,6 +168,60 @@ is a working host page showing all three.
 
 Full notes — the deck JSON shape, the level-map legend, how to add your own topic — are in
 [`games/operator-sorter/README-local.md`](games/operator-sorter/README-local.md).
+
+## Python Code Typing
+
+[`games/typing/`](games/typing) — the target is real Python, character by character:
+quotes, brackets, colons, `=` and the four-space indent are all part of the score. Ten
+levels, from `print('hello')` to a three-line loop with a running total.
+
+**No timer.** The clock counts *up*, so there is no ceiling to beat and a level can never
+run out on you — it comes down to accuracy and speed. The slider under the bar stopped
+being "time left" and became "how much of the line is done". A wrong key flashes red and
+costs accuracy, nothing else.
+
+**Typing rules.** A correct key advances the cursor; a wrong one does not. `Backspace`
+steps back (fixing a typo is not an error), `Tab` types the four-space indent in one go
+(only when the next four characters really are spaces), `Enter` matches the newline, which
+is displayed as `↵` and is a target character like any other. Punctuation counts, spaces
+count, and you have to reach the end to clear the level. Keys are read from the document
+rather than an `<input>`, so `Space` will not scroll the page and `Tab` will not steal
+focus — the price is that composition events have to be ignored by hand, so **turn your IME
+off before you start**.
+
+**Solo vs. a race.** Add `?room=<code>` and the game becomes a race against everyone else
+in that room, on the same text. Each player's avatar climbs the tower on the right: the
+vertical position is that player's progress, and the finish line is the top.
+
+```bash
+cd server && npm ci && npm start     # room server on ws://localhost:2567
+```
+
+| Parameter | Meaning |
+| --- | --- |
+| `room=<code>` | join that room, creating it if nobody has yet |
+| `room=` / `room=new` | make a new room with a random code |
+| `ws=<url>` | where the room server is (default: this host, port 2567) |
+| `level=<n>` / `id=<id>` | which level a *new* room starts on |
+| `all=1` `json=<url>` `embed=1` | as in the other games; `json=` only affects solo |
+
+Rooms are addressed by the code the client picks, so a code written on the board works:
+the first player to open it creates the room, everyone else joins by code. The room server
+is the authority — it holds the text and checks every character a client claims to have
+typed, so a client can only *ask* to move forward. The race starts on a **server**
+timestamp (`startsAt`, set three seconds ahead — never a per-client 3-2-1) so a slow
+connection does not cost you the start, and places and times are the server's too. Drop out
+mid-race and your avatar greys out rather than vanishing; the race still ends when everyone
+still connected is done, and anyone can end it early.
+
+Two things are deliberately *not* synced: typos and WPM stay local, because the server
+never sees individual keystrokes and should not pretend to know. And no result card pops up
+while other people are still typing — the finisher's avatar pins to the top and turns gold,
+so they can watch the rest of the race.
+
+The whole multiplayer layer is a dynamic `import()`, so `colyseus.js` is a separate chunk
+that is never fetched for solo play: the game still works offline, and `?room=` on a machine
+that cannot reach a server drops back to solo with a message.
 
 ## Mirroring third-party games
 
@@ -291,6 +349,20 @@ Development happens on a workstation; the server only pulls and builds:
 ```bash
 git pull --ff-only && npm ci && npm run build
 ```
+
+The typing game's room server is a **second, optional** thing: it has its own
+`package.json`, so the site's `npm ci` ignores it, and the site builds and runs without it.
+Only the multiplayer half needs it:
+
+```bash
+cd server && npm ci && npm start        # ws://0.0.0.0:2567 — systemd/pm2 it if you like
+```
+
+It serves WebSocket and the matchmaking POSTs; the browser reaches it on port 2567 of
+whatever host served the page unless `?ws=` says otherwise. On an `https://` page the
+default becomes `wss://`, so a reverse proxy has to terminate TLS there. One process is
+enough for a classroom; the room-code registry is per-process, so more than one would need
+`@colyseus/redis-presence` and a shared driver.
 
 Prefer `npm ci` over `npm install` — it installs exactly what the lockfile pins and never
 rewrites `package-lock.json`, which keeps the working tree clean on both machines.

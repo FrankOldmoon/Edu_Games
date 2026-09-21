@@ -1,0 +1,23 @@
+{
+  "levels": [
+    { "id": "t01", "text": "print('hello')" },
+
+    { "id": "t02", "text": "name = 'Ada'" },
+
+    { "id": "t03", "text": "age = int(input('Age: '))" },
+
+    { "id": "t04", "text": "x = 5\ny = 3\nprint(x + y)" },
+
+    { "id": "t05", "text": "items = [\"pen\", \"book\"]" },
+
+    { "id": "t06", "text": "print('a', 'b', sep='-')" },
+
+    { "id": "t07", "text": "if score >= 60:\n    print('pass')" },
+
+    { "id": "t08", "text": "for i in range(3):\n    print(i * 2)" },
+
+    { "id": "t09", "text": "def double(n):\n    return n * 2" },
+
+    { "id": "t10", "text": "total = 0\nfor n in [1, 2, 3]:\n    total += n" }
+  ]
+}

@@ -14,6 +14,7 @@ import memoryThumb from "../games/memory/capture.png";
 import orderThumb from "../games/order/capture.png";
 import sliceThumb from "../games/slice/capture.png";
 import robotThumb from "../games/robot/capture.png";
+import typingThumb from "../games/typing/capture.png";
 
 const GAMES = [
   {
@@ -105,6 +106,13 @@ const GAMES = [
     desc: "Program a robot with five instructions and deliver every parcel — 8 levels",
     url: "./games/robot/",
     thumb: robotThumb,
+    tag: "HTML5",
+  },
+  {
+    name: "Python Code Typing",
+    desc: "Type each Python line exactly as written, punctuation and all — 10 timed levels, one wrong key costs a second",
+    url: "./games/typing/",
+    thumb: typingThumb,
     tag: "HTML5",
   },
 ];

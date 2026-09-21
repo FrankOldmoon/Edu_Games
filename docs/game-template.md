@@ -174,9 +174,14 @@ reportResult("<id>", {
   关卡文案（`name` / `tip`）由调用方按语言包组装好再传进来。
 - `src/game-ui/feedback.js` 的 `celebrate({title, lines, actionLabel, onAction, onDismiss})` —— 半透明通关卡，不会自动消失；
   默认会放一轮 **通关烟花**（`src/game-ui/fireworks.js` 的 `launchFireworks`），不要就传 `fireworks: false`
-- `src/game-ui/timer.js` 的 `createCountdown({el, bar, label, onTick, onExpire})` —— 每关倒计时，
-  数字胶囊（`.clock`）和 slider 进度条（`.timebar`）都在里面；`bar:` 传一个空容器，填充条和滑块由它生成并驱动。
-  配套 `limitMs(level, unit, base, per)` 把关卡库里的 `timer: {base, per}` 换算成毫秒
+- `src/game-ui/timer.js` —— 计时器只有两种，别在游戏里再写第三种：
+  - `createCountdown({el, bar, label, onTick, onExpire})` —— 每关**倒计时**，
+    数字胶囊（`.clock`）和 slider 进度条（`.timebar`）都在里面；`bar:` 传一个空容器，填充条和滑块由它生成并驱动。
+    配套 `limitMs(level, unit, base, per)` 把关卡库里的 `timer: {base, per}` 换算成毫秒
+  - `createStopwatch({el, label, onTick})` —— **正计时**（只往上走、没有上限，`start(ms)` 能从已有偏移起步）。
+    给"比总用时"的游戏用：`games/typing` 就是这一类
+  - `createBar(host)` —— 那条滑块本身。倒计时拿它表示"还剩多少"，正计时拿它表示"完成了多少"，
+    结构只有这一份，都只是喂一个 0..1 的比例
 - `src/game-ui/progress.js` —— 参数、进度、关卡库加载、回传
 
 ## 7. 体验底线
@@ -187,6 +192,9 @@ reportResult("<id>", {
   两个都交给 `createCountdown`，不在游戏里各写一遍。剩不到 10 秒两份一起变红，被扣时间一起闪。
   限时规则写进关卡库的 `timer: {base, per}`，`unit` 是这个游戏自己的单位（对数 / 行数 / 项数 / 步数上限），
   这样规则在数据里、老师能改。超时就把出问题的区域加上 `.failed`、给出重试，并把 `timedOut: true` 回传。
+  **例外：比速度的游戏用正计时**（`createStopwatch` + `createBar`，见 `games/typing`）：
+  没有上限就没有超时、没有 `.failed`、也没有 `timedOut`，滑块改成表示完成进度，
+  关卡库里不用写 `timer`。两条路都行，但同一个游戏里不要混着来。
 - 失败要给出**信息**（哪里错了、该看什么），不是只说「错了」；超时干脆把正确答案摆出来
 - 键盘可达，`:focus-visible` 有描边；按钮就是 `<button>`
 - `prefers-reduced-motion` 下关掉装饰动画（`base.css` 已兜一层）

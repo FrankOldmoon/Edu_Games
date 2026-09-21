@@ -1,0 +1,175 @@
+@import "../../../src/game-ui/base.css";
+
+/* 关卡列表（.levels / .lv）、顶栏（.bar / .back / .brand / .progress / .lvname /
+   .counter）、倒计时（.clock / .timebar）、报错（.err）、弹框（.celebrate）全在 base.css 里。
+   这里只写「照着敲代码」特有的部分：读数条、代码块、字符状态、键位提示，
+   外加多人那一层 —— 房间条、大堂、头像塔。
+
+   hidden 必须是硬性的：这一页有太多"按阶段显示/隐藏"的块，
+   让 CSS 里的 display 盖过 [hidden] 会让它们全部失灵。 */
+[hidden] { display: none !important; }
+
+/* -------------------------------- 读数条 -------------------------------- */
+
+.stats {
+  display: flex; flex-wrap: wrap; gap: 10px;
+  max-width: 880px; margin: 0 auto 16px;
+}
+.stat {
+  flex: 1 1 110px; padding: 9px 12px; border-radius: 10px; text-align: center;
+  background: var(--panel); border: 1px solid var(--line);
+}
+.stat .k {
+  font-size: 10.5px; letter-spacing: .09em; text-transform: uppercase; color: var(--dim-2);
+}
+.stat .v { margin-top: 3px; font-family: var(--mono); font-size: 17px; color: var(--gold); }
+
+/* -------------------------------- 代码块 -------------------------------- */
+
+/* white-space: pre —— 缩进的空格必须原样显示；换行由 game.js 插的 <br> 表达，
+   所以这里不用 pre-wrap，长行宁可横向滚动，免得折行处看不出到底有没有空格。 */
+.code {
+  max-width: 880px; margin: 0 auto; padding: 24px 26px;
+  border-radius: 12px; background: var(--panel); border: 1px solid var(--line);
+  font-family: var(--mono); font-size: 17px; line-height: 2; letter-spacing: .3px;
+  white-space: pre; overflow-x: auto;
+}
+
+.code .ch { color: var(--dim-2); border-radius: 3px; }
+.code .ch.ok { color: var(--green); }
+.code .ch.nl { opacity: .4; }
+.code .ch.nl.ok { opacity: 1; }
+
+/* 光标就是一个高亮的字符块：不用去量文本宽度，空格和换行也能看见 */
+.code .ch.cur {
+  color: #0d1017; background: var(--accent); opacity: 1;
+  box-shadow: 0 0 0 2px var(--accent);
+}
+.code .ch.bad {
+  color: #fff; background: var(--red);
+  box-shadow: 0 0 0 2px var(--red);
+  animation: chShake .26s ease-out;
+}
+
+/* 开赛倒计时期间整块淡下来：能看清要打什么，但还不能敲 */
+.code.waiting .ch.cur { background: transparent; box-shadow: none; color: var(--dim-2); }
+
+@keyframes chShake {
+  0%, 100% { transform: translateX(0); }
+  30% { transform: translateX(-3px); }
+  70% { transform: translateX(3px); }
+}
+
+/* ------------------------------ 键位提示 ------------------------------ */
+
+.keytip {
+  max-width: 880px; margin: 16px auto 0; text-align: center;
+  color: var(--dim-2); font-size: 12.5px; line-height: 1.9;
+}
+.keytip kbd {
+  font-family: var(--mono); font-size: 11.5px; padding: 1px 6px; margin: 0 1px;
+  border-radius: 5px; border: 1px solid var(--line-2); background: var(--panel-2); color: var(--text);
+}
+
+/* ------------------------------ 多人：布局 ------------------------------ */
+
+.arena {
+  display: grid; grid-template-columns: minmax(0, 1fr);
+  gap: 18px; align-items: start; max-width: 1180px; margin: 0 auto;
+}
+body.is-race .arena { grid-template-columns: minmax(0, 1fr) 240px; }
+.pane { min-width: 0; }
+
+/* 房间条：房间号 + 人数 + 邀请/离开 */
+.roombar {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  margin: 0 0 16px; padding: 8px 12px;
+  border-radius: 10px; background: var(--panel); border: 1px solid var(--line);
+}
+.roomcode { font-family: var(--mono); font-size: 13px; color: var(--text); }
+.roommeta { font-size: 12.5px; color: var(--dim); }
+
+/* 大堂 / 结算面板 */
+.lobby {
+  display: flex; flex-direction: column; gap: 10px;
+  margin: 0 0 16px; padding: 14px 16px;
+  border-radius: 12px; background: var(--panel); border: 1px solid var(--line);
+}
+.lobbyrow { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.lobby .lbl {
+  font-size: 10.5px; letter-spacing: .09em; text-transform: uppercase; color: var(--dim-2);
+}
+.lobby select, .lobby input {
+  appearance: none; font: inherit; font-size: 13px; color: var(--text);
+  background: var(--panel-2); border: 1px solid var(--line); border-radius: 9px;
+  padding: 7px 10px; min-width: 130px;
+}
+.lobby input { min-width: 150px; }
+.roster { display: flex; flex-wrap: wrap; gap: 8px; }
+.rc {
+  padding: 4px 10px; border-radius: 999px; font-size: 12.5px; color: var(--dim);
+  background: var(--panel-2); border: 1px solid var(--line);
+}
+.rc.me { border-color: var(--accent); color: var(--text); }
+.rc.off { opacity: .45; }
+
+/* ------------------------------ 多人：头像塔 ------------------------------ */
+
+/* 纵向位置 = 已打完的比例。底部 46px 和顶部 30px 是给头像留的余量，
+   否则比例到 100% 时头像会被 overflow 切掉一半。
+   高度跟着视口走：太高会把整页撑得空荡荡，太矮几条泳道就叠在一起了。 */
+.tower {
+  position: relative; height: clamp(300px, 48vh, 520px); overflow: hidden;
+  border-radius: 12px; background: var(--panel); border: 1px solid var(--line);
+}
+.lanes { position: absolute; top: 0; bottom: 0; left: 0; right: 0; display: flex; }
+.lanes .lane { flex: 1; border-right: 1px dashed var(--line); }
+.lanes .lane:last-child { border-right: 0; }
+
+.chips { position: absolute; top: 30px; bottom: 46px; left: 0; right: 0; }
+.slot {
+  position: absolute; left: calc(var(--lane, 0) * 33.3333%); width: 33.3333%;
+  bottom: 0; transition: bottom .18s linear;
+}
+.chip { display: flex; flex-direction: column; align-items: center; gap: 2px; transform: translateY(50%); }
+.chip .av {
+  width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center;
+  font-size: 16px; line-height: 1; background: var(--panel-2); border: 1px solid var(--line-2);
+}
+.chip .nm {
+  max-width: 96%; font-size: 10.5px; color: var(--dim);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.chip.me .av { border-color: var(--accent); box-shadow: 0 0 0 2px rgba(74, 124, 255, .3); }
+.chip.me .nm { color: var(--text); font-weight: 600; }
+.chip.done .av { border-color: var(--gold); background: rgba(255, 209, 102, .16); }
+.chip.off { opacity: .4; }
+
+.railtop {
+  position: absolute; top: 0; left: 0; right: 0; padding: 4px 0 6px; text-align: center;
+  font-size: 10px; letter-spacing: .12em; text-transform: uppercase; color: var(--dim-2);
+  border-bottom: 1px dashed rgba(255, 209, 102, .45);
+  background: linear-gradient(180deg, #1b2030, rgba(27, 32, 48, 0));
+}
+
+/* ------------------------------ 开赛倒计时 ------------------------------ */
+
+.countdown {
+  position: fixed; inset: 0; z-index: 45; display: grid; place-items: center;
+  pointer-events: none;
+}
+.countdown span {
+  font-family: var(--mono); font-size: 96px; font-weight: 700; line-height: 1;
+  color: var(--accent); text-shadow: 0 10px 44px rgba(0, 0, 0, .65);
+}
+.countdown span.pop { animation: cdPop .5s ease-out; }
+@keyframes cdPop {
+  from { transform: scale(1.7); opacity: 0; }
+}
+
+/* -------------------------------- 窄屏 -------------------------------- */
+
+@media (max-width: 860px) {
+  body.is-race .arena { grid-template-columns: minmax(0, 1fr); }
+  .tower { height: 220px; }
+}
