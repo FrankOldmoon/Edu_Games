@@ -255,7 +255,7 @@ function win() {
   celebrate({
     title: t("ui.win"),
     lines: [
-      t("stars" + stars),
+      t("ui.stars" + stars),
       t("ui.winLine", { pairs: pairs, moves: moves, time: formatClock(seconds * 1000) }),
       t("ui.leftTime", { n: left }),
     ],
