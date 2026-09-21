@@ -82,7 +82,7 @@
   display: grid; grid-template-columns: minmax(0, 1fr);
   gap: 18px; align-items: start; max-width: 1180px; margin: 0 auto;
 }
-body.is-race .arena { grid-template-columns: minmax(0, 1fr) 240px; }
+body.is-room .arena { grid-template-columns: minmax(0, 1fr) 240px; }
 .pane { min-width: 0; }
 
 /* 房间条：房间号 + 人数 + 邀请/离开 */
@@ -116,7 +116,6 @@ body.is-race .arena { grid-template-columns: minmax(0, 1fr) 240px; }
   background: var(--panel-2); border: 1px solid var(--line);
 }
 .rc.me { border-color: var(--accent); color: var(--text); }
-.rc.off { opacity: .45; }
 
 /* ------------------------------ 多人：头像塔 ------------------------------ */
 
@@ -157,24 +156,9 @@ body.is-race .arena { grid-template-columns: minmax(0, 1fr) 240px; }
   background: linear-gradient(180deg, #1b2030, rgba(27, 32, 48, 0));
 }
 
-/* ------------------------------ 开赛倒计时 ------------------------------ */
-
-.countdown {
-  position: fixed; inset: 0; z-index: 45; display: grid; place-items: center;
-  pointer-events: none;
-}
-.countdown span {
-  font-family: var(--mono); font-size: 96px; font-weight: 700; line-height: 1;
-  color: var(--accent); text-shadow: 0 10px 44px rgba(0, 0, 0, .65);
-}
-.countdown span.pop { animation: cdPop .5s ease-out; }
-@keyframes cdPop {
-  from { transform: scale(1.7); opacity: 0; }
-}
-
 /* -------------------------------- 窄屏 -------------------------------- */
 
 @media (max-width: 860px) {
-  body.is-race .arena { grid-template-columns: minmax(0, 1fr); }
+  body.is-room .arena { grid-template-columns: minmax(0, 1fr); }
   .tower { height: 220px; }
 }

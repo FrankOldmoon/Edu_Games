@@ -1,6 +1,10 @@
 /* 房间状态的两张表。字段刻意压到最少：
-   服务器只负责它能验证的东西 —— 位置、关卡、时间。
-   错误数、WPM、正确率都是各人本地自己算的展示值，不进 schema（服务器看不见按键，也就不该声称知道）。 */
+   这个房间不搞比赛 —— 每个人自己打自己的，服务器只负责两件事：
+   把题库发下去（校验要用），以及记住每个人打到第几关、一关里打了多少。
+   名次、用时、倒计时、开赛时间这些都没有，因为那都是"比"才需要的东西。
+
+   错误数、WPM、正确率也是各人本地自己算的展示值，不进 schema
+   （服务器看不见按键，也就不该声称知道）。 */
 
 import { Schema, ArraySchema, MapSchema, defineTypes } from "@colyseus/schema";
 
@@ -8,44 +12,35 @@ export class Player extends Schema {
   constructor() {
     super();
     this.name = "";
-    this.level = 0;      // 跑到第几关（在 state.levelIds 里的下标）
-    this.pos = 0;        // 这一关已完成几个字符
-    this.place = 0;      // 跑完整条赛道的名次，0 = 还没跑完
-    this.timeMs = 0;     // 跑完整条赛道用的时间，服务器时间差的
+    this.playing = false;   // 自己那局开始了没有（没开始的只挂在大堂里，不进爬楼榜）
+    this.level = 0;         // 打到题库里的第几关（下标）
+    this.pos = 0;           // 这一关已完成几个字符
     this.connected = true;
   }
 }
 
 defineTypes(Player, {
   name: "string",
+  playing: "boolean",
   level: "uint8",
   pos: "uint32",
-  place: "uint8",
-  timeMs: "uint32",
   connected: "boolean",
 });
 
-export class RaceState extends Schema {
+export class RoomState extends Schema {
   constructor() {
     super();
-    this.phase = "lobby";      // lobby | countdown | racing | done
-    this.startLevelId = "";    // 从哪一关起跑（房间设置，只有大堂里能改）
-    /* 这一场要跑的关卡：id 用来在客户端取本地化的标题，文本是服务器手上的权威副本。
-       两样都发下去，客户端就不需要自己去题库里找 —— 谁也别想和服务器理解得不一样。 */
+    /* 题库整个发下去（id 给客户端查本地化标题用，文本是服务器手上的权威副本）。
+       两样都发，客户端就不用自己去题库里找 —— 谁也别想和服务器理解得不一样。
+       每人自己选起跑关卡，所以这里发的是整个题库，不是某一局切出来的赛道。 */
     this.levelIds = new ArraySchema();
     this.texts = new ArraySchema();
-    this.startsAt = 0;         // 开赛的服务器时间（epoch ms），0 = 还没排
-    this.raceNo = 0;           // 每开一场 +1，客户端靠它重置本地的计时和错误数
     this.players = new MapSchema();
   }
 }
 
-defineTypes(RaceState, {
-  phase: "string",
-  startLevelId: "string",
+defineTypes(RoomState, {
   levelIds: ["string"],
   texts: ["string"],
-  startsAt: "float64",
-  raceNo: "uint16",
   players: { map: Player },
 });

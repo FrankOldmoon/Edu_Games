@@ -22,7 +22,6 @@
   <span class="counter game-only" id="counter"></span>
   <button class="btn list-only" id="btnReset" type="button" data-i18n="ui.reset">Reset progress</button>
   <button class="btn list-only" id="btnPlayWithOthers" type="button" data-i18n="ui.playWithOthers">Play with others</button>
-  <button class="btn game-only" id="btnRetry" type="button" data-i18n="ui.retry">Retry</button>
 </header>
 
 <main>
@@ -33,12 +32,11 @@
   </section>
 
   <section id="viewGame" class="game-only">
-    <!-- 多人：房间号 + 邀请链接。单人时整条不显示 -->
+    <!-- 房间：房间号 + 邀请链接。单人时整条不显示 -->
     <div class="roombar" id="roomBar" hidden>
       <span class="roomcode" id="roomCode"></span>
       <span class="roommeta" id="roomMeta"></span>
       <span class="spacer"></span>
-      <button class="btn ghost" id="btnEndRace" type="button" data-i18n="ui.endRace" hidden>End race</button>
       <button class="btn" id="btnInvite" type="button" data-i18n="ui.invite">Copy invite link</button>
       <button class="btn ghost" id="btnLeave" type="button" data-i18n="ui.leave">Leave</button>
     </div>
@@ -48,12 +46,13 @@
 
     <div class="arena">
       <div class="pane">
-        <!-- 多人：开赛前（和结束后）的面板 -->
+        <!-- 房间：还没开始时的面板 —— 挑自己的起跑关卡、改名字、看谁进来了。
+             开始之后收起来，那一刻起键盘归判定层 -->
         <div class="lobby" id="lobby" hidden>
           <div class="lobbyrow">
             <label class="lbl" for="levelPick" data-i18n="ui.startLevel">Starting level</label>
             <select id="levelPick"></select>
-            <button class="btn primary" id="btnStart" type="button" data-i18n="ui.startRace">Start race</button>
+            <button class="btn primary" id="btnStart" type="button" data-i18n="ui.startPlaying">Start</button>
           </div>
           <div class="lobbyrow">
             <label class="lbl" for="nameInput" data-i18n="ui.yourName">Your name</label>
@@ -73,7 +72,7 @@
         <p class="keytip" id="keytip"></p>
       </div>
 
-      <!-- 多人：头像塔。纵向位置 = 已经打完的比例 -->
+      <!-- 房间：头像塔。纵向位置 = 同一关里已经打完的比例 -->
       <aside class="tower" id="tower" hidden>
         <div class="lanes" id="lanes"></div>
         <div class="chips" id="chips"></div>
@@ -82,9 +81,6 @@
     </div>
   </section>
 </main>
-
-<!-- 开赛倒计时：3 2 1，到点自己消失 -->
-<div class="countdown" id="countdown" hidden><span id="cdText">3</span></div>
 
 <script type="module" src="./assets/game.js"></script>
 </body>

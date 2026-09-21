@@ -2,17 +2,18 @@
 
    两种模式共用同一套判定 —— 核心只有一个数：「这一关已经完成几个字符」board.pos。
      · 单人：pos 就是本地真相。正计时、没有上限，比的是准确率和速度。
-     · 多人：一场比赛是一串关卡，谁先跑完最后一关谁赢。过一关**立刻**进下一关，
-       不必等别人，所以每个人各有各的关卡和位置；塔上只画同关的人。
+     · 房间（?room=）：**没有比赛**。每个人自己开自己那一局、自己选起跑关卡，
+       打完一关自己进下一关，谁也不等谁、也不影响谁。房间只做一件事：
+       把每个人打到第几关、这一关完成了多少同步给别人 ——
+       塔上只画和你**同一关**的人（别人打的是另一段代码时，比位置没有意义）。
        pos 由服务器裁决：本地先乐观前进（不然一个来回就卡一下），
        服务器说不对就把权威位置推回去（resync）。
-   计时两处都是正计时：单人用 src/game-ui/timer.js 的 createStopwatch；
-   多人用服务器时钟现算（raceTick），因为开赛时刻是服务器给的 ——
-   整场跑完才停表，中途过多少关都算在同一条时间里。
-   进度条那一条滑块也从"还剩多少"变成"这一关打完了多少"（createBar）。
+   两种模式的计时都是本地正计时（src/game-ui/timer.js 的 createStopwatch），
+   进度条那一条滑块也都是"这一关打完了多少"（createBar）—— 没有开赛时刻，
+   所以也不需要跟服务器对时。
 
    判定模型：
-     敲对 → pos 前进；敲错 → 原地红闪（多人时错误数只是本地的展示值 ——
+     敲对 → pos 前进；敲错 → 原地红闪（房间模式下错误数只是本地的展示值 ——
      服务器看不见按键，也就不该声称知道）
      Backspace 退回（改错不算错）；Tab 一次顶四个空格；必须整个敲完才算过一关 */
 
@@ -29,16 +30,12 @@ const GAME_ID = "typing";
 const PACKS = { en: en, "zh-CN": zhCN };
 const el = function (id) { return document.getElementById(id); };
 
-const MODE = { SOLO: "solo", RACE: "race" };
-const PHASE = { LOBBY: "lobby", COUNTDOWN: "countdown", RACING: "racing", DONE: "done" };
+const MODE = { SOLO: "solo", ROOM: "room" };
 
 const BAD_FLASH_MS = 260;
 const INDENT = 4;
 const LANES = 3;              /* 头像塔的泳道数，人多了就往同一条里叠（会往上抬一点错开） */
 const NAME_KEY = "typing.name";
-/* 本地比服务器晚这么一点点才放开键盘：时钟总有误差，早敲的那几个键服务器会拒掉，
-   退回去重打就白打了。给所有人同样的一点点宽限，既不偏袒谁，也不会白打。 */
-const START_GRACE_MS = 40;
 
 /* 头像不进 schema：sessionId 一样，各客户端算出来的就一样，零资源、不会不同步 */
 const AVATARS = ["🦊", "🐼", "🐸", "🐙", "🦉", "🐧", "🐝", "🐢", "🦄", "🐳", "🦋", "🐰"];
@@ -56,10 +53,9 @@ let badTimer = null;
 /* 单人 */
 let solo = null;
 
-/* 多人 */
+/* 房间 */
 let net = null;
-let race = null;
-let raceTickId = null;
+let run = null;
 const towerChips = new Map();
 
 /* ------------------------------ 文案取值 ------------------------------ */
@@ -187,11 +183,7 @@ function flashBad(i) {
 /* ------------------------------ 读数 ------------------------------ */
 
 function elapsedMs() {
-  if (mode === MODE.SOLO) return watch ? watch.elapsedMs() : 0;
-  if (!race) return 0;
-  if (race.localDone) return race.localMs;
-  if (!race.startsAt || !net) return 0;
-  return Math.max(0, net.serverNow() - race.startsAt);
+  return watch ? watch.elapsedMs() : 0;
 }
 
 function wpm() {
@@ -225,15 +217,12 @@ function resetTyping() {
 function canType() {
   if (isCelebrating()) return false;
   if (mode === MODE.SOLO) return !!solo && !solo.done;
-  if (!race || race.localDone) return false;
+  /* 房间模式：还没点"开始"（在大堂里预览）、或者自己这一局已经打完了，都不收键 */
+  if (!run || !run.playing || run.done) return false;
   /* 刚过一关、下一关还没从服务器发下来：这一小会儿先别收键，
      否则那几个字符会按旧关卡的文本去校验，白敲 */
-  if (race.advancing) return false;
-  if (race.phase === PHASE.RACING) return true;
-  /* 倒计时按本地时间自己解开：不能等服务器那一条 patch 到了才让敲，
-     否则网络差的人白白晚起跑（服务器照样会拒绝提前的按键）。 */
-  if (race.phase === PHASE.COUNTDOWN && net) return net.serverNow() >= race.startsAt + START_GRACE_MS;
-  return false;
+  if (run.advancing) return false;
+  return true;
 }
 
 function typeChar(ch) {
@@ -269,20 +258,33 @@ function typeChunk(chunk) {
     paintStats();
     return;
   }
-  /* 这一关打完了。最后一关 → 整场跑完，等服务器给名次；
+  /* 这一关打完了。已经是最后一关 → 自己这一局到此为止，停表弹自己的成绩卡；
      否则等服务器把下一关发下来（通常几十毫秒），这期间先不收键。 */
-  if (race.myLevel >= race.lastLevel) {
-    race.localMs = Math.max(0, net.serverNow() - race.startsAt);
-    race.localDone = true;
-    el("hint").innerHTML = t("ui.waitingOthers");
-  } else {
-    race.advancing = true;
-    armAdvanceWatchdog();
-    el("hint").innerHTML = t("ui.levelCleared");
+  if (run.myLevel >= run.lastLevel) {
+    finishRun();
+    return;
   }
+  run.advancing = true;
+  armAdvanceWatchdog();
+  el("hint").innerHTML = t("ui.levelCleared");
   syncBoard();
   paintBar();
   paintStats();
+}
+
+/* 自己这一局打完了：停表、给自己看成绩。这里没有名次 —— 没人跟你比，
+   房间里其他人可能还在第 1 关慢慢打。 */
+function finishRun() {
+  if (!run || run.done) return;
+  run.done = true;
+  run.advancing = false;
+  clearAdvanceWatchdog();
+  if (watch) watch.stop();
+  el("hint").innerHTML = t("ui.youFinished");
+  syncBoard();
+  paintBar();
+  paintStats();
+  showRunResult();
 }
 
 function backspace() {
@@ -291,7 +293,7 @@ function backspace() {
   syncBoard();
   paintBar();
   paintStats();
-  if (mode === MODE.RACE) net.progress(board.pos, "");
+  if (mode === MODE.ROOM) net.progress(board.pos, "");
 }
 
 /* Tab 一次顶四个空格，但只在接下来的四个目标字符真的都是空格时才算数。
@@ -326,7 +328,9 @@ function onKeyDown(e) {
 
   const tag = document.activeElement && document.activeElement.tagName;
   if (tag === "INPUT" || tag === "SELECT" || tag === "TEXTAREA") return;
-  if (race && race.phase !== PHASE.RACING && race.phase !== PHASE.COUNTDOWN) return;
+  /* 房间里还没点"开始"（在大堂里挑关卡、改名字）：键盘交回给页面本身，
+     Tab 该去下一个控件、空格该滚页面，别被判定层吃掉 */
+  if (mode === MODE.ROOM && (!run || !run.playing)) return;
 
   const k = e.key;
 
@@ -349,13 +353,12 @@ function startLevel(i) {
   }
 
   mode = MODE.SOLO;
-  document.body.classList.remove("is-race");
+  document.body.classList.remove("is-room");
   solo = { index: i, level: lv, done: false };
 
   resetTyping();
   renderBoard(text);
   el("keytip").innerHTML = t("ui.keyTip");
-  el("btnRetry").textContent = t("ui.retry");
   paintSoloChrome();
   paintStats();
   paintBar();
@@ -430,8 +433,8 @@ function win() {
 }
 
 function toList() {
-  if (mode === MODE.RACE) {
-    leaveRace();
+  if (mode === MODE.ROOM) {
+    leaveRoom();
     return;
   }
   if (watch) watch.stop();
@@ -520,57 +523,52 @@ function copyText(text) {
   }
 }
 
-async function enterRace(code) {
-  mode = MODE.RACE;
-  document.body.classList.add("is-race");
-  /* 多人这一层是动态 import 的：不玩多人就永远不会加载 colyseus.js */
+async function enterRoom(code) {
+  mode = MODE.ROOM;
+  document.body.classList.add("is-room");
+  /* 房间这一层是动态 import 的：不进房间就永远不会加载 colyseus.js */
   let netMod = null;
   try {
     netMod = await import("./net.js");
   } catch (e) {
     el("err").textContent = t("ui.connectFailed", { msg: "net.js " + (e.message || e) });
     el("err").hidden = false;
-    leaveRace();
+    leaveRoom();
     return;
   }
   const realCode = code || netMod.codeFromUrl() || netMod.randomCode();
 
   show("game");
   el("hint").textContent = t("ui.connecting");
-  el("lvName").textContent = t("ui.raceTitle");
+  el("lvName").textContent = t("ui.roomTitle");
 
   try {
     net = await netMod.openRoom({
       url: netMod.serverUrl(),
       code: realCode,
       name: playerName(),
-      levelId: requestedLevelId(),
     });
   } catch (e) {
     net = null;
     el("err").hidden = false;
     el("err").textContent = t("ui.connectFailed", { msg: e.message || String(e) });
-    leaveRace();          /* 连不上就回单人，不把人卡在白屏上 */
+    leaveRoom();          /* 连不上就回单人，不把人卡在白屏上 */
     return;
   }
 
   netMod.writeRoomToUrl(net.roomId);
-  race = {
+  run = {
     code: net.roomId,
-    startLevelId: "",
-    myLevel: 0,        /* 我跑到第几关（下标） */
-    lastLevel: 0,      /* 赛道最后一关的下标 */
-    rendered: false,   /* 第一关的文本画过了没 —— 只有画过之后换关才闪一下 */
-    raceNo: 0,
-    phase: "",
-    lastPhase: "",
-    startsAt: 0,
-    advancing: false,  /* 过关了、下一关还没到手的这一小会儿 */
+    playing: false,     /* 自己这一局开始了没（跟着服务器上的那个字段走） */
+    myLevel: 0,         /* 我打到第几关（题库里的下标） */
+    lastLevel: 0,       /* 题库最后一关的下标 */
+    rendered: false,    /* 文本画过没有 —— 只有画过之后换关才闪一下 */
+    renderedLevel: 0,
+    advancing: false,   /* 过关了、下一关还没到手的这一小会儿 */
     advanceTimer: null,
     advanceTries: 0,
-    localDone: false,  /* 整条赛道跑完了 */
-    localMs: 0,
-    charsDone: 0,      /* 已经打完的那几关一共多少字符（用来算整场 WPM） */
+    done: false,        /* 自己这一局打完了 */
+    charsDone: 0,       /* 已经打完的那几关一共多少字符（用来算这一局的 WPM） */
     resultShown: false,
     mod: netMod,
   };
@@ -581,18 +579,18 @@ async function enterRace(code) {
   buildLanes();
   bindRoomInputs();
   el("roomBar").hidden = false;
+  el("lobby").hidden = false;     /* 还没点"开始"：挑起跑关卡、改名字、看谁进来了 */
   el("tower").hidden = false;
   el("keytip").innerHTML = t("ui.keyTip");
   el("roomCode").textContent = t("ui.roomLabel", { code: net.roomId });
-  el("btnRetry").textContent = t("ui.raceAgain");
 
   net.room.onMessage("resync", function (msg) {
     /* 服务器不认这次前进：退回它认定的位置（它说的关卡也算） */
-    if (!race) return;
-    const lv = msg && typeof msg.level === "number" ? msg.level : race.myLevel;
-    if (lv !== race.myLevel) {
-      race.myLevel = lv;
-      race.advancing = false;
+    if (!run) return;
+    const lv = msg && typeof msg.level === "number" ? msg.level : run.myLevel;
+    if (lv !== run.myLevel) {
+      run.myLevel = lv;
+      run.advancing = false;
       clearAdvanceWatchdog();
       resetTyping();
       renderBoard(levelText(lv));
@@ -603,7 +601,7 @@ async function enterRace(code) {
     const pos = msg && typeof msg.pos === "number" ? msg.pos : 0;
     if (pos < board.pos) {
       board.pos = pos;
-      race.advancing = false;
+      run.advancing = false;
       clearAdvanceWatchdog();
       syncBoard();
       paintBar();
@@ -612,37 +610,32 @@ async function enterRace(code) {
   });
   net.room.onStateChange(onRoomState);
   net.room.onLeave(function () {
-    if (race) {
+    if (run) {
       el("err").hidden = false;
       el("err").textContent = t("ui.roomClosed");
     }
   });
 
-  raceTickId = setInterval(raceTick, 100);
   onRoomState();
-  raceTick();
 }
 
-function leaveRace() {
+function leaveRoom() {
   clearAdvanceWatchdog();
-  if (raceTickId) {
-    clearInterval(raceTickId);
-    raceTickId = null;
-  }
   if (net) {
     try { net.leave(); } catch (e) { /* 已经断了 */ }
   }
   net = null;
-  race = null;
+  run = null;
   towerChips.forEach(function (c) { c.remove(); });
   towerChips.clear();
-  document.body.classList.remove("is-race");
-  el("countdown").hidden = true;
+  document.body.classList.remove("is-room");
   el("roomBar").hidden = true;
   el("tower").hidden = true;
   el("lobby").hidden = true;
+  el("code").classList.remove("waiting");
   mode = MODE.SOLO;
   clearBad();
+  if (watch) watch.stop();
   renderList();
   show("list");
 }
@@ -662,7 +655,8 @@ function bindRoomInputs() {
   const input = el("nameInput");
   if (!sel.dataset.bound) {
     sel.dataset.bound = "1";
-    sel.addEventListener("change", function () { if (net) net.setLevel(sel.value); });
+    /* 起跑关卡是我自己的选择，改它只换我这边的预览，别人不受影响 */
+    sel.addEventListener("change", function () { renderPreview(); paintHint(); });
   }
   if (!input.dataset.bound) {
     input.dataset.bound = "1";
@@ -674,27 +668,49 @@ function bindRoomInputs() {
       }
       input.value = v;
       rememberName(v);
-      if (race) race.mod.writeNameToUrl(v);   /* 写回地址栏，刷新之后名字还在 */
+      if (run) run.mod.writeNameToUrl(v);   /* 写回地址栏，刷新之后名字还在 */
       if (net) net.setName(v);
     });
   }
   input.value = playerName();
   renderLevelPicker();
+  renderPreview();
 }
 
+/* 起跑关卡是**我自己**的：这里选的只决定我这局从哪一关开始，别人选了别的照样各打各的。
+   选项来自服务器发的题库，不去本地题库里找 —— 两边必须是同一份。 */
 function renderLevelPicker() {
+  const st = net && net.room ? net.room.state : null;
+  if (!st || !st.levelIds) return;
   const sel = el("levelPick");
-  const want = net && net.room.state ? net.room.state.startLevelId : "";
-  if (sel.options.length !== levels.length) {
+  if (sel.options.length !== st.levelIds.length) {
     sel.innerHTML = "";
-    levels.forEach(function (lv) {
+    for (let i = 0; i < st.levelIds.length; i++) {
       const o = document.createElement("option");
-      o.value = lv.id;
-      o.textContent = lvText(lv, "title") || lv.id;
+      o.value = st.levelIds[i];
+      o.textContent = levelTitleById(st.levelIds[i]);
       sel.appendChild(o);
-    });
+    }
+    const want = requestedLevelId();
+    if (st.levelIds.indexOf(want) >= 0) sel.value = want;
   }
-  if (want) sel.value = want;
+}
+
+function pickedLevelIndex() {
+  const st = net && net.room ? net.room.state : null;
+  const sel = el("levelPick");
+  if (!st || !st.levelIds || !sel) return 0;
+  const at = st.levelIds.indexOf(sel.value);
+  return at < 0 ? 0 : at;
+}
+
+/* 大堂里先把选中的那一关摊开给你看：代码看得见、但还不能敲 */
+function renderPreview() {
+  resetTyping();
+  renderBoard(levelText(pickedLevelIndex()));
+  el("code").classList.add("waiting");
+  paintBar();
+  paintStats();
 }
 
 /* 我这一关的目标文本。文本随 state 一起下来，客户端不去题库里自己找 ——
@@ -718,6 +734,13 @@ function flashCode() {
   box.classList.add("advance");
 }
 
+/* 点了"开始"之后把焦点从按钮上摘下来 —— 否则接着敲 Enter / Space 会把按钮再按一次 */
+function blurChrome() {
+  const a = document.activeElement;
+  if (!a || a === document.body) return;
+  if (a.tagName === "BUTTON" || a.tagName === "SELECT" || a.tagName === "INPUT") a.blur();
+}
+
 /* 过关后如果下一关迟迟不来（那一条 progress 被服务器限流丢了，或者包丢了），
    不能就这么干等 —— 客户端会永远停在"过关了"上，人也没法再敲。
    服务器它是权威，所以拿它认定的位置，把中间缺的那一段再交一次；还不行就再试，最多三次。 */
@@ -725,223 +748,168 @@ const ADVANCE_RETRY_MS = 1200;
 const ADVANCE_RETRY_MAX = 3;
 
 function clearAdvanceWatchdog() {
-  if (race && race.advanceTimer) {
-    clearTimeout(race.advanceTimer);
-    race.advanceTimer = null;
+  if (run && run.advanceTimer) {
+    clearTimeout(run.advanceTimer);
+    run.advanceTimer = null;
   }
 }
 
 function armAdvanceWatchdog() {
-  if (!race) return;
+  if (!run) return;
   clearAdvanceWatchdog();
-  race.advanceTries = 0;
-  race.advanceTimer = setTimeout(advanceRetry, ADVANCE_RETRY_MS);
+  run.advanceTries = 0;
+  run.advanceTimer = setTimeout(advanceRetry, ADVANCE_RETRY_MS);
 }
 
 function advanceRetry() {
-  if (!race || !race.advancing || !net || !net.room.state) return;
+  if (!run || !run.advancing || !net || !net.room.state) return;
   const me = net.room.state.players.get(net.sessionId);
   const from = me ? me.pos : 0;
-  race.advanceTries = (race.advanceTries || 0) + 1;
+  run.advanceTries = (run.advanceTries || 0) + 1;
   if (from < board.pos) {
     /* 服务器还差一截：把它缺的那段一次性补上（服务器是按"从他那儿到这儿"的原文比对的） */
-    net.progress(board.pos, levelText(race.myLevel).slice(from, board.pos));
+    net.progress(board.pos, levelText(run.myLevel).slice(from, board.pos));
   }
-  race.advanceTimer = race.advanceTries < ADVANCE_RETRY_MAX
+  run.advanceTimer = run.advanceTries < ADVANCE_RETRY_MAX
     ? setTimeout(advanceRetry, ADVANCE_RETRY_MS)
     : null;
 }
 
-/* 服务器是权威：关卡、位置、名次、时间都从 state 上读，本地只负责画。
-   过一关就立刻换成下一关的文本 —— 不必等别人，这就是这一版的全部意思。 */
+/* 服务器是权威：关卡和位置都从 state 上读，本地只负责画。
+   每个人自己打自己的 —— 这里不会因为别人做了什么而改变我这边的状态。 */
 function onRoomState() {
-  if (!race || !net || !net.room.state) return;
+  if (!run || !net || !net.room.state) return;
   const st = net.room.state;
   if (!st.players || !st.texts) return;
 
-  if (st.raceNo !== race.raceNo) {
-    /* 新的一场：所有人回到赛道第一关 */
-    race.raceNo = st.raceNo;
-    race.resultShown = false;
-    race.localDone = false;
-    race.localMs = 0;
-    race.advancing = false;
-    race.myLevel = 0;
-    race.rendered = false;
-    race.charsDone = 0;
-    race.startsAt = st.startsAt;
-  }
-
-  if (st.startLevelId !== race.startLevelId) {
-    race.startLevelId = st.startLevelId;
-    renderLevelPicker();
-  }
-
-  race.lastLevel = Math.max(0, st.levelIds.length - 1);
+  run.lastLevel = Math.max(0, st.levelIds.length - 1);
 
   const me = st.players.get(net.sessionId);
-  if (me && me.level !== race.myLevel) {
-    race.charsDone += board.chars.length;   /* 刚打完那一关的长度 */
-    race.myLevel = me.level;
-    race.advancing = false;      /* 下一关到手了，可以接着敲 */
-    clearAdvanceWatchdog();
-  }
-  if (me && me.place > 0) {
-    race.localDone = true;       /* 整条赛道跑完了 */
-    race.advancing = false;
-    clearAdvanceWatchdog();
-    if (me.timeMs > 0) race.localMs = me.timeMs;   /* 服务器给出的用时才是准的 */
-  }
+  const playing = !!(me && me.playing);
 
-  /* 该画哪一关的文本：第一次画、换了关卡、房间换了赛道，都是这一条 */
-  const want = levelText(race.myLevel);
-  if (!race.rendered || race.renderedLevel !== race.myLevel) {
+  if (playing && !run.playing) {
+    /* 刚点了开始：进到真正那一关、开表、把大堂收起来 */
+    run.myLevel = me.level;
+    run.rendered = false;
+    run.done = false;
+    run.resultShown = false;
+    run.charsDone = 0;
     resetTyping();
-    renderBoard(want);
+    renderBoard(levelText(run.myLevel));
     paintBar();
-    if (race.rendered) flashCode();
-    race.renderedLevel = race.myLevel;
+    el("lobby").hidden = true;
+    if (watch) watch.start();
+    blurChrome();
   }
 
-  race.phase = st.phase;
-  race.startsAt = st.startsAt;
-  if (race.phase === PHASE.DONE) {
-    race.advancing = false;
+  if (playing && me.level !== run.myLevel) {
+    run.charsDone += board.chars.length;   /* 刚打完那一关的长度 */
+    run.myLevel = me.level;
+    run.advancing = false;                 /* 下一关到手了，可以接着敲 */
     clearAdvanceWatchdog();
   }
 
-  if (race.lastPhase !== race.phase) {
-    onPhaseChanged(race.lastPhase, race.phase);
-    race.lastPhase = race.phase;
+  run.playing = playing;
+
+  if (playing && (!run.rendered || run.renderedLevel !== run.myLevel)) {
+    resetTyping();
+    renderBoard(levelText(run.myLevel));
+    paintBar();
+    if (run.rendered) flashCode();         /* 换了一关才闪；第一关不闪 */
+    run.renderedLevel = run.myLevel;
+    run.rendered = true;
   }
 
-  renderTower();
+  /* 自己这一局打完了（本地那一下已经弹过卡了；这里兜住"刷新/重连后发现已经打完"） */
+  if (run.done) showRunResult();
+
+  paintHint();
+  paintRoomBar();
   renderRoster();
-  paintRacePanels();
-  paintStats();
-  race.rendered = true;
-
-  if (st.phase === PHASE.DONE) showRaceResult();
-}
-
-/* 换阶段只做一次的事。重点是开赛那一刻把焦点从按钮上摘下来 ——
-   否则「开始比赛」那个按钮还拿着焦点，接着敲 Enter / Space 会把整场比赛又开一遍。 */
-function onPhaseChanged(from, to) {
-  if (to !== PHASE.COUNTDOWN && to !== PHASE.RACING) return;
-  const a = document.activeElement;
-  if (!a || a === document.body) return;
-  if (a.tagName === "BUTTON" || a.tagName === "SELECT" || a.tagName === "INPUT") a.blur();
-}
-
-/* 100ms 一跳：倒计时、正计时、读数都从这一处刷 */
-function raceTick() {
-  if (!race || !net || !net.room.state) return;
-  const st = net.room.state;
-  const phase = st.phase;
-
-  if (phase === PHASE.COUNTDOWN && st.startsAt) {
-    /* 遮罩消失的那一刻，正好就是 canType() 放行的那一刻 —— 两处用同一个
-       startsAt + START_GRACE_MS，中间不能有空档，否则抢跑的人白敲几个键。 */
-    paintCountdown(Math.max(0, st.startsAt + START_GRACE_MS - net.serverNow()));
-  } else {
-    paintCountdown(null);
-  }
-
-  if (phase === PHASE.RACING || phase === PHASE.DONE) {
-    el("clock").textContent = formatElapsed(elapsedMs());
-  }
+  renderTower();
   paintStats();
 }
 
-function paintCountdown(left) {
-  const box = el("countdown");
-  const num = el("cdText");
-  if (left === null || left <= 0) {
-    const wasWaiting = el("code").classList.contains("waiting");
-    box.hidden = true;
-    el("code").classList.remove("waiting");
-    if (wasWaiting) syncBoard();        /* 放开键盘那一刻把光标点亮 */
-    return;
-  }
-  box.hidden = false;
-  el("code").classList.add("waiting");
-  const n = String(Math.ceil(left / 1000));
-  if (num.textContent !== n) {
-    num.textContent = n;
-    num.classList.remove("pop");
-    void num.offsetWidth;
-    num.classList.add("pop");
-  }
-}
-
-function paintRacePanels() {
-  const phase = race.phase;
-  const inLobby = phase === PHASE.LOBBY || phase === PHASE.DONE;
-  el("lobby").hidden = !inLobby;
-  el("btnEndRace").hidden = !(phase === PHASE.RACING || phase === PHASE.COUNTDOWN);
-  el("levelPick").disabled = !inLobby;
-  el("nameInput").disabled = !inLobby;
-  el("btnStart").textContent = phase === PHASE.DONE ? t("ui.raceAgain") : t("ui.startRace");
-  if (race.localDone && phase !== PHASE.DONE) {
-    el("hint").innerHTML = t("ui.waitingOthers");
-    return;
-  }
-  el("hint").innerHTML = phaseHint();
-}
-
-function phaseHint() {
+/* 大堂里那句说明：自己打自己的，房间里互相看得见进度 */
+function lobbyLead() {
   const st = net.room.state;
-  const levels = Math.max(1, st.levelIds.length);
-  if (race.phase === PHASE.LOBBY) {
-    return t("ui.raceLead", { level: 1, levels: levels });
-  }
-  if (race.phase === PHASE.COUNTDOWN) return t("ui.countdownHint");
-  if (race.phase === PHASE.RACING) {
-    return t("ui.racingHint", { level: race.myLevel + 1, levels: levels, chars: levelText(race.myLevel).length }) +
-      " · " + levelTitleById(st.levelIds[race.myLevel]);
-  }
-  return t("ui.doneHint");
+  return t("ui.roomLead", { level: pickedLevelIndex() + 1, levels: st.levelIds.length });
+}
+
+function roomHint() {
+  const st = net.room.state;
+  return t("ui.levelHint", {
+    level: run.myLevel + 1,
+    levels: st.levelIds.length,
+    chars: levelText(run.myLevel).length,
+  }) + " · " + levelTitleById(st.levelIds[run.myLevel]);
+}
+
+function paintHint() {
+  if (!run || !net || !net.room.state) return;
+  if (!run.playing) { el("hint").innerHTML = lobbyLead(); return; }
+  if (run.done) { el("hint").innerHTML = t("ui.youFinished"); return; }
+  el("hint").innerHTML = roomHint();
 }
 
 /* 房间那一行：我在第几关、同关有几个人、房间一共几个人。
    塔上只画同关的人，所以"同关几个"得写出来，否则塔上只剩自己会莫名其妙。 */
-function renderRoster() {
+function paintRoomBar() {
   const st = net.room.state;
-  const box = el("roster");
-  box.innerHTML = "";
+  if (!run.playing) {
+    el("roomMeta").textContent = t("ui.roomPeople", { n: st.players.size });
+    return;
+  }
   let here = 0;
-  st.players.forEach(function (p, id) {
-    if (p.level === race.myLevel) here += 1;
-    const c = document.createElement("span");
-    c.className = "rc" + (id === net.sessionId ? " me" : "") + (p.connected ? "" : " off");
-    c.textContent = avatarFor(id) + " " + p.name + (id === net.sessionId ? " " + t("ui.you") : "");
-    c.title = t("ui.onLevel", { n: p.level + 1 });
-    box.appendChild(c);
+  st.players.forEach(function (p) {
+    if (p.playing && p.level === run.myLevel) here += 1;
   });
   el("roomMeta").textContent = t("ui.roomMeta", {
-    level: race.myLevel + 1,
+    level: run.myLevel + 1,
     levels: Math.max(1, st.levelIds.length),
     here: here,
     room: st.players.size,
   });
 }
 
-/* 头像塔：只画和我同一关的人，纵向位置 = 他在这一关打完的比例。
-   同一泳道里挨得太近的往上抬一点，别叠成一团。 */
+/* 大堂里的人：谁开始了就写他在第几关 —— "互相看得见进度"最直接的那一面 */
+function renderRoster() {
+  const st = net.room.state;
+  const box = el("roster");
+  box.innerHTML = "";
+  st.players.forEach(function (p, id) {
+    const c = document.createElement("span");
+    c.className = "rc" + (id === net.sessionId ? " me" : "");
+    c.textContent = avatarFor(id) + " " + p.name + (id === net.sessionId ? " " + t("ui.you") : "");
+    c.title = p.playing ? t("ui.onLevel", { n: p.level + 1 }) : t("ui.notStarted");
+    box.appendChild(c);
+  });
+}
+
+/* 头像塔：只画和我同一关、而且已经开始的人 —— 别人打的是另一段代码，比位置没有意义。
+   纵向位置 = 他在这一关打完的比例。同一泳道里挨得太近的往上抬一点，别叠成一团。 */
 function renderTower() {
   const st = net.room.state;
-  const my = race.myLevel;
+
+  if (!run.playing) {
+    towerChips.forEach(function (c) { c.remove(); });
+    towerChips.clear();
+    return;
+  }
+
+  const my = run.myLevel;
   const total = Math.max(1, levelText(my).length);
+  const lastIdx = Math.max(0, st.levelIds.length - 1);
   const list = [];
   let i = 0;
   st.players.forEach(function (p, id) {
-    if (p.level !== my) return;          /* 别的关卡的人不在这张图上 */
+    if (!p.playing || p.level !== my) return;      /* 别的关卡的人不在这张图上 */
     list.push({
       id: id,
       name: p.name,
       ratio: Math.max(0, Math.min(1, p.pos / total)),
-      place: p.place,
-      on: p.connected,
+      /* 最后一关也打满了 = 整个题库都打完了，钉在顶上变金色 */
+      finished: p.level === lastIdx && p.pos >= levelText(p.level).length,
       me: id === net.sessionId,
       lane: i % LANES,
     });
@@ -988,11 +956,10 @@ function renderTower() {
     slot.style.setProperty("--lane", String(p.lane));
     slot.style.bottom = (p.bottom * 100).toFixed(1) + "%";
     chip.classList.toggle("me", p.me);
-    chip.classList.toggle("off", !p.on);
-    chip.classList.toggle("done", p.place > 0);
+    chip.classList.toggle("done", p.finished);
     chip.querySelector(".av").textContent = avatarFor(p.id);
     chip.querySelector(".nm").textContent = p.name;
-    chip.title = p.name + (p.place > 0 ? " · #" + p.place : "");
+    chip.title = p.name + (p.finished ? " · " + t("ui.finishedAll") : "");
   });
   towerChips.forEach(function (slot, id) {
     if (!alive[id]) {
@@ -1002,24 +969,22 @@ function renderTower() {
   });
 }
 
-function showRaceResult() {
-  if (!race || race.resultShown) return;
-  race.resultShown = true;
+/* 自己这一局打完了的成绩卡。和单人那张一样（也是共用的 celebrate）——
+   这里没有名次：没人跟你比，房间里其他人可能还在第 1 关慢慢打。 */
+function showRunResult() {
+  if (!run || run.resultShown) return;
+  run.resultShown = true;
 
   const st = net.room.state;
-  const me = st.players.get(net.sessionId);
-  const total = st.players.size;
   const levels = Math.max(1, st.levelIds.length);
-  const place = me ? me.place : 0;
-  const reached = place > 0 ? levels : (me ? me.level + 1 : 1);
-  const ms = me && me.timeMs > 0 ? me.timeMs : race.localMs;
-  const seconds = Math.max(1, Math.round(ms / 1000) || 1);
+  const seconds = Math.max(1, watch ? watch.elapsedSeconds() : 1);
   const acc = accuracyPct();
   const errors = stats.errors;
-  /* 整条赛道一共敲过的字符：打完的几关 + 手上这一关的进度 —— 这样 WPM 才是整场的 */
-  const chars = race.charsDone + board.pos;
+  /* 这一局一共敲过的字符：打完的几关 + 手上这一关的进度 —— 这样 WPM 才是整局的 */
+  const chars = run.charsDone + board.pos;
   const speed = Math.round((chars / 5) / (seconds / 60));
-  const lastId = st.levelIds[race.myLevel];
+  const stars = errors === 0 ? 3 : errors <= 2 ? 2 : 1;
+  const lastId = st.levelIds[run.myLevel];
 
   reportResult(GAME_ID, {
     level: levelNoById(lastId),
@@ -1029,32 +994,32 @@ function showRaceResult() {
     total: stats.keys,
     rate: stats.keys ? stats.hits / stats.keys : 1,
     progress: prog.ratio(),
-    finished: false,
+    finished: true,
     timedOut: false,
     locale: i18n.getLocale(),
-    mode: "race",
+    mode: "room",
     room: net.roomId,
-    place: place,
-    players: total,
+    players: st.players.size,
     levels: levels,
-    reached: reached,
     chars: chars,
     wpm: speed,
     accuracy: acc,
     errors: errors,
     seconds: seconds,
+    stars: stars,
   });
 
   celebrate({
-    title: place === 1 ? t("ui.raceWon") : t("ui.raceOver"),
+    title: t("ui.win"),
     lines: [
-      place > 0 ? t("ui.racePlace", { place: place, total: total }) : t("ui.raceDnf"),
-      place > 0 ? t("ui.raceTime", { levels: levels, time: formatElapsed(ms) })
-                : t("ui.coursePartial", { done: reached, levels: levels }),
-      t("ui.raceStats", { wpm: speed, acc: acc, err: errors }),
+      t("ui.stars" + stars),
+      t("ui.winLine", { chars: chars, wpm: speed, acc: acc }),
+      errors === 0 ? t("ui.noTypos") : t("ui.typos", { n: errors }),
+      t("ui.doneIn", { time: formatElapsed(seconds * 1000) }),
     ],
-    actionLabel: t("ui.raceAgain"),
-    onAction: function () { if (net) net.start(); },
+    /* 没有「再来一场」：自己这一局打完就完了，想接着打就回列表自己再挑一关 */
+    actionLabel: t("ui.backToList"),
+    onAction: toList,
   });
 }
 
@@ -1063,7 +1028,6 @@ function showRaceResult() {
 function relocalize() {
   renderList();
   el("keytip").innerHTML = t("ui.keyTip");
-  el("btnRetry").textContent = mode === MODE.RACE ? t("ui.raceAgain") : t("ui.retry");
 
   if (mode === MODE.SOLO) {
     if (!solo) return;
@@ -1071,13 +1035,14 @@ function relocalize() {
     paintStats();
     return;
   }
-  if (!race || !net || !net.room.state) return;
-  el("lvName").textContent = t("ui.raceTitle");
+  if (!run || !net || !net.room.state) return;
+  el("lvName").textContent = t("ui.roomTitle");
   el("roomCode").textContent = t("ui.roomLabel", { code: net.roomId });
   renderLevelPicker();
+  paintHint();
+  paintRoomBar();
   renderRoster();
   renderTower();
-  paintRacePanels();
   paintStats();
 }
 
@@ -1090,7 +1055,11 @@ async function boot() {
   watch = createStopwatch({
     el: el("clock"),
     onTick: function () {
-      if (mode === MODE.SOLO && solo && !solo.done) {
+      /* 正在打的时候每跳一次就把读数和进度条刷一遍：单人是我自己在打，
+         房间里是我这一局开始了、还没打完 */
+      const liveSolo = mode === MODE.SOLO && solo && !solo.done;
+      const liveRoom = mode === MODE.ROOM && run && run.playing && !run.done;
+      if (liveSolo || liveRoom) {
         paintStats();
         paintBar();
       }
@@ -1116,20 +1085,15 @@ async function boot() {
       renderList();
     }
   });
-  el("btnRetry").addEventListener("click", function () {
-    if (mode === MODE.RACE) {
-      if (net) net.start();
-      return;
-    }
-    if (solo) startLevel(solo.index);
-  });
   el("btnToList").addEventListener("click", toList);
-  el("btnStart").addEventListener("click", function () { if (net) net.start(); });
-  el("btnEndRace").addEventListener("click", function () { if (net) net.end(); });
-  el("btnLeave").addEventListener("click", leaveRace);
+  /* 只开始我自己这一局：自己选的起跑关卡，别人完全不受影响 */
+  el("btnStart").addEventListener("click", function () {
+    if (net) net.startRun(el("levelPick").value);
+  });
+  el("btnLeave").addEventListener("click", leaveRoom);
   el("btnInvite").addEventListener("click", function () {
-    if (!race) return;
-    copyText(race.mod.inviteUrl(net.roomId));
+    if (!run) return;
+    copyText(run.mod.inviteUrl(net.roomId));
   });
   el("btnPlayWithOthers").addEventListener("click", function () {
     /* 新建一间：随机房号写进 URL，然后照常进房 —— 复制链接就能请人进来 */
@@ -1150,7 +1114,7 @@ async function boot() {
   /* ?room= 出现就进多人。注意只算一次：?room= 空着时每次算出来的随机房号都不一样 */
   const wanted = codeFromUrlSafe();
   if (wanted !== null) {
-    enterRace(wanted);
+    enterRoom(wanted);
     return;
   }
 

@@ -19,7 +19,7 @@ assembled yourself.
 | **Slice Shot** | Predict what `start:stop:step` really selects, including negative indices and steps | [`games/slice`](games/slice) |
 | **Robot Orders** | Sequence, turning and counted repetition: drive a robot with five instructions inside a step budget | [`games/robot`](games/robot) |
 | **Operator Sorter** | Route parcels into the bin that names their Python operator (`*` → TIMES, `//` → FLOOR, …) | [`games/operator-sorter`](games/operator-sorter) |
-| **Python Code Typing** | Type real Python lines character by character — quotes, brackets, colons and indentation included; solo, or a live race in a shared room | [`games/typing`](games/typing) |
+| **Python Code Typing** | Type real Python lines character by character — quotes, brackets, colons and indentation included; solo, or in a shared room where everyone plays their own run and sees the others' progress | [`games/typing`](games/typing) |
 
 Third-party games captured with the mirror tool live in `games/external/`. That folder is
 **not tracked** — a fresh clone contains only the seven games above. See
@@ -192,16 +192,20 @@ rather than an `<input>`, so `Space` will not scroll the page and `Tab` will not
 focus — the price is that composition events have to be ignored by hand, so **turn your IME
 off before you start**.
 
-**Solo vs. a race.** Add `?room=<code>` and the same drill becomes a race against everyone
-else in that room. A race is a **course**: the levels from the chosen starting level to the
-end of the bank, in order. Clear a level and you are moved straight on to the next one — you
-never wait for anybody, so the field spreads out across the course, and the first player to
-finish the last level wins.
+**Solo vs. a shared room.** Add `?room=<code>` and you are in the same room as everyone
+else — but **there is no race**. Each player plays their own run, from the starting level they
+pick, on their own. Nobody starts or stops together, there is no countdown and no clock but
+your own; clear a level and you move straight on to the next one by yourself. What the room
+*does* sync is presence and progress — who is here, which level they are on and how far
+through it — so everyone can watch each other move.
 
 Each player's avatar climbs the tower on the right, and the tower shows **only the people on
 your own level**, on the same text as you: the vertical position is how far they are through
-*that* level, and the finish line is the top. The line above the tower says which level you
-are on and how many others are there with you.
+*that* level, and the finish line is the top. Anyone on a different level is simply not drawn,
+because comparing positions on different texts would mean nothing. The line above the tower
+says which level you are on and how many others are there with you. Finish the last level and
+your own result card appears — there is no "race again" and no "end race"; go back to the list
+to start another run.
 
 ```bash
 cd server && npm ci && npm start     # room server on ws://localhost:2568
@@ -213,7 +217,7 @@ cd server && npm ci && npm start     # room server on ws://localhost:2568
 | `room=` / `room=new` | make a new room with a random code |
 | `username=<name>` | your name in the room (otherwise remembered, then generated) |
 | `ws=<url>` | where the room server is (default: this host, port 2568) |
-| `level=<n>` / `id=<id>` | which level a *new* room starts its course on |
+| `level=<n>` / `id=<id>` | which level the picker starts on |
 | `all=1` `json=<url>` `embed=1` | as in the other games; `json=` only affects solo |
 
 `?username=` is what makes one link per student possible: `?room=py1&username=Ada` drops Ada
@@ -223,19 +227,18 @@ your identity.
 
 Rooms are addressed by the code the client picks, so a code written on the board works:
 the first player to open it creates the room, everyone else joins by code. The room server
-is the authority — it holds the text of every level in the course and checks each character a
-client claims to have typed, so a client can only *ask* to move forward, and only *says*
-which level it is on. The race starts on a **server** timestamp (`startsAt`, set three
-seconds ahead — never a per-client 3-2-1) so a slow connection does not cost you the start;
-places and times are the server's too, and the clock runs for the whole course rather than
-restarting at each level. Drop out mid-race and your avatar greys out rather than vanishing;
-the race still ends when everyone still connected is finished, and anyone can end it early.
+is the authority on two things only — it holds the whole bank and checks each character a
+client claims to have typed, so a client can only *ask* to move forward; and it remembers,
+per player, which level they are on and how far through it they are. `start` moves only the
+player who sent it, and it is ignored for anyone already playing (so you cannot jump levels by
+pressing Start again). Leaving deletes you from the board rather than greying you out — with
+everyone on their own run there is no field to keep intact, and stale avatars would only pile
+up.
 
 Two things are deliberately *not* synced: typos and WPM stay local, because the server never
-sees individual keystrokes and should not claim to know. And no result card is shown to the
-first player home while others are still typing — their avatar pins to the top and turns gold,
-so they can watch the rest of the race. When the race does end, everyone's card arrives three
-seconds after the fireworks (the shared `celebrate()`, see
+sees individual keystrokes and should not claim to know. And the result card is your own —
+there is no shared finish, no places and no times to compare. It arrives three seconds after
+the fireworks (the shared `celebrate()`, see
 [`docs/game-template.md`](docs/game-template.md)).
 
 The whole multiplayer layer is a dynamic `import()`, so `colyseus.js` is a separate chunk
@@ -397,7 +400,8 @@ bash /www/wwwroot/127.0.0.1_3010/deploy.sh
 In aaPanel that goes in **计划任务 → 类型「Shell 脚本」**, and its 「执行」 button is the
 one-click; add a schedule too if you want it to run by itself. The script logs to
 `/www/wwwlogs/edu_games-deploy.log`, and it only touches what changed: a front-end-only commit
-rebuilds the site and leaves the room server alone, so a CSS fix cannot end a race in progress.
+rebuilds the site and leaves the room server alone, so a CSS fix cannot interrupt a run in
+progress.
 `R=`, `NODE_DIR=`, `BRANCH=`, `SITE_PORT=`, `ROOM_PORT=` and `PM2_APP=` override the paths and
 names if the layout moves.
 

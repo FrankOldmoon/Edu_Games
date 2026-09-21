@@ -1,27 +1,24 @@
-/* 打字竞速的房间。一场比赛 = 跑完一串关卡，谁先跑完最后一关谁赢。
+/* 打字房间。这里**没有比赛**：每个人自己开自己的那一局，服务器只做两件事 ——
+   把题库发下去（校验要用），以及记住每个人打到第几关、这一关完成了多少字符，
+   好让同一个房间里的人互相看见彼此的进度。
 
-   三条原则：
-   1. 服务器是唯一权威。目标文本在服务器手上，客户端每推进一段就要把那段字符
-      交上来，服务器对着**他当前那一关**的文本比；不匹配就把权威位置推回去（resync）。
-      客户端能做的只是"申请前进"，改不了名次。
-   2. 过一关就立刻进下一关，不必等别人 —— 所以每个人各有各的 level / pos，
-      塔上只画同关的人（客户端按 level 过滤）。
-   3. 名次和时间都用服务器时钟：开赛时间是 Date.now() + 3 秒，各人自己算倒计时。
-      绝不能让每个客户端各自 3-2-1 —— 那样网络慢的人天然吃亏。
+   所以这里没有开赛时间、没有倒计时、没有名次、没有"等其他人"。谁点了开始就谁自己开始，
+   不影响别人；打完一关就自己进下一关。
+
+   服务器仍然是唯一权威：目标文本在服务器手上，客户端每推进一段就要把那段字符交上来，
+   服务器对着**他当前那一关**的文本比；不匹配就把权威位置推回去（resync）。
+   客户端能做的只是"申请前进"。
 
    房间号由客户端指定（老师写在黑板上的 py1 就是这间房的身份），见 index.js 的
    filterBy(["code"])；万一并发里撞了，抢输的那间会退回随机房号，客户端发现房号
    对不上会重新 joinById(房间号) —— 自己修好，见 ownsCode。 */
 
 import { Room } from "@colyseus/core";
-import { RaceState, Player } from "../schema.js";
+import { RoomState, Player } from "../schema.js";
 import { loadLevels } from "../bank.js";
 
 export const ROOM_NAME = "typing";
 
-const PHASE = { LOBBY: "lobby", COUNTDOWN: "countdown", RACING: "racing", DONE: "done" };
-
-const COUNTDOWN_MS = 3000;
 const MAX_CLIENTS = 8;
 const MAX_NAME = 16;
 const MSG_WINDOW_MS = 1000;
@@ -68,24 +65,20 @@ export class TypingRoom extends Room {
     this.levels = loadLevels();
     if (!this.levels.length) throw new Error("the typing level bank is empty");
 
-    this.rate = new Map();       /* sessionId -> { windowAt, count }，不进 schema */
-    this.ranker = 0;
-    this.countdown = null;
+    this.rate = new Map();       /* sessionId -> { windowAt, count, warned }，不进 schema */
 
-    this.setState(new RaceState());
-    this.applyCourse(opt.levelId);
+    this.setState(new RoomState());
+    this.levels.forEach((lv) => {
+      this.state.levelIds.push(lv.id);
+      this.state.texts.push(lv.text);
+    });
 
+    /* 谁点了"开始"，谁自己开始。别人完全不受影响。 */
+    this.onMessage("start", (client, msg) => this.onStart(client, msg));
     this.onMessage("progress", (client, msg) => this.onProgress(client, msg));
     this.onMessage("name", (client, msg) => this.onName(client, msg));
-    this.onMessage("level", (client, msg) => this.onLevel(client, msg));
-    this.onMessage("start", () => this.startRace());
-    this.onMessage("end", () => this.endRace());
-    this.onMessage("ping", (client, msg) => client.send("pong", {
-      t: msg && msg.t,
-      now: Date.now(),
-    }));
 
-    console.log(`[typing] room created  id=${this.roomId}  code=${code || "-"}  course=${this.state.levelIds.join(">")}`);
+    console.log(`[typing] room created  id=${this.roomId}  code=${code || "-"}  levels=${this.levels.length}`);
   }
 
   onJoin(client, options) {
@@ -96,119 +89,47 @@ export class TypingRoom extends Room {
   }
 
   onLeave(client) {
+    /* 走了就从榜上消失。这里不搞"灰头像"：那是比赛里为了名次不乱跳才需要的，
+       而每个人自己打自己的，留一个灰头像在那儿只会越积越多。 */
     const p = this.state.players.get(client.sessionId);
     if (!p) return;
+    this.state.players.delete(client.sessionId);
     this.rate.delete(client.sessionId);
-
-    if (this.state.phase === PHASE.LOBBY) {
-      this.state.players.delete(client.sessionId);
-      return;
-    }
-    /* 比赛/结算期间掉线：先留一个灰掉的头像，名次不乱跳；下一场开始时再清 */
-    p.connected = false;
-    this.maybeFinish();
+    console.log(`[typing] ${this.roomId} -> ${p.name} left (${this.state.players.size} in room)`);
   }
 
   onDispose() {
-    if (this.countdown) clearTimeout(this.countdown);
-    this.countdown = null;
     if (this.ownsCode && this.code) liveCodes.delete(this.code);
     console.log(`[typing] room disposed  id=${this.roomId}`);
   }
 
-  /* ------------------------------- 赛道 ------------------------------- */
+  /* ------------------------------ 开始自己的那一局 ------------------------------ */
 
-  /* 赛道 = 从选定的起始关卡一路打到题库最后一关。
-     老师想短一点就从后面几关起跑；起跑点只有大堂里能改。 */
-  applyCourse(startId) {
-    let at = 0;
-    for (let i = 0; i < this.levels.length; i++) if (this.levels[i].id === startId) at = i;
-    this.run = this.levels.slice(at);
+  /* 只有还没开始的能开始；已经开始的人再点也没用（免得跳到某一关假装打完了）。
+     不影响任何其它人 —— 这正是这个房间存在的意义。 */
+  onStart(client, msg) {
+    const p = this.state.players.get(client.sessionId);
+    if (!p || p.playing) return;
 
-    this.state.startLevelId = this.run[0].id;
-    this.state.levelIds.clear();
-    this.state.texts.clear();
-    this.run.forEach((lv) => {
-      this.state.levelIds.push(lv.id);
-      this.state.texts.push(lv.text);
-    });
+    const want = msg && typeof msg.levelId === "string" ? msg.levelId : "";
+    let at = this.state.levelIds.indexOf(want);
+    if (at < 0) at = 0;
 
-    this.state.startsAt = 0;
-    this.state.phase = PHASE.LOBBY;
-    this.ranker = 0;
-    this.state.players.forEach((p) => this.resetPlayer(p));
-  }
-
-  resetPlayer(p) {
-    p.level = 0;
+    p.level = at;
     p.pos = 0;
-    p.place = 0;
-    p.timeMs = 0;
+    p.playing = true;
+    console.log(`[typing] ${this.roomId} ${p.name} started at ${this.state.levelIds[at]}`);
   }
+
+  /* ------------------------------ 前进 ------------------------------ */
 
   textFor(p) {
     return this.state.texts[p.level] === undefined ? "" : this.state.texts[p.level];
   }
 
-  onLevel(client, msg) {
-    if (this.state.phase !== PHASE.LOBBY && this.state.phase !== PHASE.DONE) return;
-    const id = msg && msg.id;
-    if (!this.levels.some(function (l) { return l.id === id; })) return;
-    if (this.countdown) { clearTimeout(this.countdown); this.countdown = null; }
-    this.applyCourse(id);
-    console.log(`[typing] ${this.roomId} course -> ${this.state.levelIds.join(">")}`);
-  }
-
-  startRace() {
-    if (this.state.phase === PHASE.COUNTDOWN) return;
-
-    /* 上一场掉线再没回来的人，别拉到下一场 */
-    const ghosts = [];
-    this.state.players.forEach((p, id) => { if (!p.connected) ghosts.push(id); });
-    ghosts.forEach((id) => this.state.players.delete(id));
-
-    this.ranker = 0;
-    this.state.players.forEach((p) => this.resetPlayer(p));
-
-    this.state.raceNo += 1;
-    this.state.startsAt = Date.now() + COUNTDOWN_MS;   /* 服务器时间，各人自己换算 */
-    this.state.phase = PHASE.COUNTDOWN;
-
-    if (this.countdown) clearTimeout(this.countdown);
-    this.countdown = setTimeout(() => {
-      this.countdown = null;
-      if (this.state.phase === PHASE.COUNTDOWN) this.state.phase = PHASE.RACING;
-    }, COUNTDOWN_MS);
-
-    console.log(`[typing] ${this.roomId} race #${this.state.raceNo} over ${this.state.levelIds.length} level(s)`);
-  }
-
-  endRace() {
-    if (this.state.phase !== PHASE.COUNTDOWN && this.state.phase !== PHASE.RACING) return;
-    if (this.countdown) { clearTimeout(this.countdown); this.countdown = null; }
-    this.state.phase = PHASE.DONE;
-    console.log(`[typing] ${this.roomId} race #${this.state.raceNo} ended at ${this.ranker} finished`);
-  }
-
-  /* 掉线不算数：只有还在线的都跑完了，这场才算完 */
-  maybeFinish() {
-    if (this.state.phase !== PHASE.RACING) return;
-    let racing = 0;
-    let finished = 0;
-    this.state.players.forEach((p) => {
-      if (!p.connected) return;
-      racing += 1;
-      if (p.place > 0) finished += 1;
-    });
-    if (racing > 0 && finished === racing) this.endRace();
-  }
-
-  /* ----------------------------- 前进 ----------------------------- */
-
   onProgress(client, msg) {
     const p = this.state.players.get(client.sessionId);
-    if (!p || !p.connected) return;
-    if (this.state.phase !== PHASE.RACING) return;
+    if (!p || !p.playing) return;      /* 在大堂里还没开始，不收 */
     if (!this.underBudget(client.sessionId)) {
       /* 被限流丢掉的包不能悄悄丢：把权威位置推回去。
          否则客户端会以为自己在等下一关，一直等下去 —— 卡死比报错糟糕得多。
@@ -233,7 +154,7 @@ export class TypingRoom extends Room {
     if (p.pos >= text.length) this.clearLevel(p);
   }
 
-  /* 打完一关：直接进下一关；已经是最后一关就整场跑完，记名次和总用时 */
+  /* 打完一关就自己进下一关；题库打完了就停在那儿，不通知谁、也不比较谁 */
   clearLevel(p) {
     const last = this.state.levelIds.length - 1;
     if (p.level < last) {
@@ -242,13 +163,7 @@ export class TypingRoom extends Room {
       console.log(`[typing] ${this.roomId} ${p.name} -> level ${p.level + 1}/${this.state.levelIds.length}`);
       return;
     }
-    if (p.place === 0) {
-      this.ranker += 1;
-      p.place = this.ranker;
-      p.timeMs = Math.max(1, Date.now() - this.state.startsAt);
-      console.log(`[typing] ${this.roomId} #${p.place} ${p.name} ${p.timeMs}ms (all ${this.state.levelIds.length} levels)`);
-      this.maybeFinish();
-    }
+    console.log(`[typing] ${this.roomId} ${p.name} finished the whole bank`);
   }
 
   resync(client, p) {

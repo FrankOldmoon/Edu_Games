@@ -1,11 +1,11 @@
-/* 多人这一层。单人永远不 import 它 —— 只有 URL 上出现了 ?room= 才会动态
+/* 房间这一层。单人永远不 import 它 —— 只有 URL 上出现了 ?room= 才会动态
    import("colyseus.js")，所以离线包和单人玩法都不受影响，连不上服务器也只是回到单人。
 
-   两件事在这里做完：
-   1. 进房。房间号由客户端指定：先 joinById(房间号)，房间还不存在才 joinOrCreate。
-      并发里抢输的那间房号会不一样，这时退出去重进真正的房间（服务器侧见 TypingRoom）。
-   2. 对时。开赛时间用的是服务器时间，各人必须自己算出本地对应时刻，
-      否则网络慢的人天然吃亏。offset = 服务器时间 - 本地时间，取 rtt 最小的那次样本。 */
+   进房：房间号由客户端指定 —— 先 joinById(房间号)，房间还不存在才 joinOrCreate。
+   并发里抢输的那间房号会不一样，这时退出去重进真正的房间（服务器侧见 TypingRoom）。
+
+   这里没有对时：房间里没有"同时开赛"这回事，每个人自己开自己那一局，
+   计时是本地正计时，不需要跟服务器换算。 */
 
 const ROOM_NAME = "typing";
 
@@ -91,35 +91,10 @@ async function waitForState(room, ms) {
   return false;
 }
 
-/* 对时：发几个 ping，取 rtt 最小的那次算 offset */
-async function syncClock(room) {
-  const sentAt = {};
-  const got = [];
-  room.onMessage("pong", function (m) {
-    const at = sentAt[m && m.t];
-    if (at === undefined) return;
-    const now = Date.now();
-    const rtt = now - at;
-    got.push({ rtt: rtt, offset: m.now - (at + rtt / 2) });
-  });
-
-  for (let i = 0; i < 4; i++) {
-    const token = "p" + i + "-" + Date.now();
-    sentAt[token] = Date.now();
-    room.send("ping", { t: token });
-    await sleep(70);
-  }
-  await sleep(220);
-
-  if (!got.length) return { offset: 0, rtt: null };
-  got.sort(function (a, b) { return a.rtt - b.rtt; });
-  return { offset: got[0].offset, rtt: got[0].rtt };
-}
-
 export async function openRoom(opts) {
   const mod = await import("colyseus.js");
   const client = new mod.Client(opts.url);
-  const joinOptions = { name: opts.name, levelId: opts.levelId, code: opts.code };
+  const joinOptions = { name: opts.name, code: opts.code };
 
   let room = null;
   try {
@@ -145,21 +120,16 @@ export async function openRoom(opts) {
   }
 
   const ready = await waitForState(room, 4000);
-  const clock = await syncClock(room);
 
-  let offset = clock.offset;
   return {
     room: room,
     sessionId: room.sessionId,
     roomId: room.roomId,
     ready: ready,
-    rtt: clock.rtt,
-    serverNow: function () { return Date.now() + offset; },
     progress: function (pos, chunk) { room.send("progress", { pos: pos, chunk: chunk }); },
     setName: function (name) { room.send("name", { name: name }); },
-    setLevel: function (id) { room.send("level", { id: id }); },
-    start: function () { room.send("start"); },
-    end: function () { room.send("end"); },
+    /* 开始我自己这一局，从哪一关起跑由我自己定 —— 服务器只记我这一份，不碰别人 */
+    startRun: function (levelId) { room.send("start", { levelId: levelId }); },
     leave: function () { try { room.leave(); } catch (e) { /* 已经断了 */ } },
   };
 }
