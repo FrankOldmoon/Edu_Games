@@ -40,20 +40,23 @@ fi
 exec > >(tee -a "$LOG") 2>&1
 
 export PATH="$NODE_DIR:/usr/bin:/bin:/usr/sbin:/sbin"
-export HOME=/home/www
 export npm_config_cache=/home/www/.npm
 export PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1
 mkdir -p "$npm_config_cache"
+
+# 仓库目录是 www 的，而 git 是 root 跑的 —— git 会因为"属主和当前用户不一致"直接拒绝干活
+# （dubious ownership）。用 -c safe.directory 一次性顶掉，不往任何 .gitconfig 里留东西。
+gitr() { git -c "safe.directory=$R" "$@"; }
 
 step() { printf '\n===== %s =====\n' "$1"; }
 
 step "拉取 origin/$BRANCH（$(date '+%F %T')）"
 cd "$R"
-OLD=$(git rev-parse HEAD)
-git fetch --prune origin
-git pull --ff-only origin "$BRANCH"
-NEW=$(git rev-parse HEAD)
-git --no-pager log --oneline -1
+OLD=$(gitr rev-parse HEAD)
+gitr fetch --prune origin
+gitr pull --ff-only origin "$BRANCH"
+NEW=$(gitr rev-parse HEAD)
+gitr --no-pager log --oneline -1
 
 # root 拉下来的新文件属主是 root，理回 www（.user.ini 是面板锁住的，跳过）
 step "属主理回 www"
@@ -62,7 +65,7 @@ find "$R" -name .user.ini -prune -o -print0 | xargs -0 chown www:www
 if [ "$OLD" = "$NEW" ]; then
   step "没有新提交 —— 构建和重启都跳过"
 else
-  CHANGED=$(git diff --name-only "$OLD".."$NEW")
+  CHANGED=$(gitr diff --name-only "$OLD".."$NEW")
   echo "本次改动的文件："
   echo "$CHANGED" | sed 's/^/  /'
 
@@ -104,7 +107,7 @@ cards=$(curl -fsS -o /dev/null -w '%{http_code}' "http://127.0.0.1:$SITE_PORT/" 
 ss -ltn | grep -q ":$ROOM_PORT " && echo "房间服务器在听 $ROOM_PORT" || echo "警告：$ROOM_PORT 上没有监听"
 chunk=$(ls -t "$R/dist/assets/" 2>/dev/null | grep -m1 '^typing-.*\.js$' || true)
 [ -n "$chunk" ] && echo "构建产物：dist/assets/$chunk"
-echo "线上跑的提交：$(git --no-pager log --oneline -1)"
+echo "线上跑的提交：$(gitr --no-pager log --oneline -1)"
 echo "日志：$LOG"
 
 step "完成（$(date '+%F %T')）"
