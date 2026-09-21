@@ -387,8 +387,21 @@ and a shared driver.
 
 ### Updating a running deployment
 
-The whole site is a pull and a build, but on a panel box (aaPanel + a site user) three
-details bite, and all three were paid for once already:
+[`deploy.sh`](deploy.sh) is the whole thing — pull, rebuild, restart — and it is the one-liner
+to put in the panel:
+
+```bash
+bash /www/wwwroot/127.0.0.1_3010/deploy.sh
+```
+
+In aaPanel that goes in **计划任务 → 类型「Shell 脚本」**, and its 「执行」 button is the
+one-click; add a schedule too if you want it to run by itself. The script logs to
+`/www/wwwlogs/edu_games-deploy.log`, and it only touches what changed: a front-end-only commit
+rebuilds the site and leaves the room server alone, so a CSS fix cannot end a race in progress.
+`R=`, `NODE_DIR=`, `BRANCH=`, `SITE_PORT=`, `ROOM_PORT=` and `PM2_APP=` override the paths and
+names if the layout moves.
+
+Four details it encodes, each paid for once already:
 
 - **Only the owner of the deploy key can pull.** That is root, while everything else wants to
   run as the site user (`www`) because nginx serves as `www`. So the git step runs as root and
@@ -402,6 +415,11 @@ details bite, and all three were paid for once already:
 - **Give npm a cache the site user can write.** The panel's npmrc sets
   `cache=/www/server/nodejs/cache`, which `www` cannot write to, so pass `npm_config_cache`;
   and skip Playwright's browser download, which the build does not need.
+- **Fail loudly, build nothing.** `set -e` plus `--ff-only`: if the pull cannot be done the
+  script stops. Without that, a failed pull is followed by a successful build of the *old* code
+  and the log looks like a deployment.
+
+The manual equivalent, if you ever need to see each step:
 
 ```bash
 R=/www/wwwroot/127.0.0.1_3010
