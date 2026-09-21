@@ -55,10 +55,22 @@ export function writeRoomToUrl(code) {
   } catch (e) { /* 无痕模式里失败也无所谓 */ }
 }
 
+/* 改名字也写回地址栏，刷新之后名字还在 */
+export function writeNameToUrl(name) {
+  try {
+    const url = new URL(location.href);
+    url.searchParams.set("username", name);
+    history.replaceState(null, "", url.toString());
+  } catch (e) { /* ignore */ }
+}
+
+/* 邀请链接：带上房号，但**不能带上你的名字** ——
+   别人点开应该是"来我这间房"，不是"你来当我"。 */
 export function inviteUrl(code) {
   try {
     const url = new URL(location.href);
     url.searchParams.set("room", code);
+    url.searchParams.delete("username");
     return url.toString();
   } catch (e) {
     return location.href;

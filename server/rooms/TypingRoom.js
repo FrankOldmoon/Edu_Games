@@ -1,15 +1,17 @@
-/* 打字竞速的房间。一场比赛 = 一段同样的 Python 代码 + 谁先跑完谁赢。
+/* 打字竞速的房间。一场比赛 = 跑完一串关卡，谁先跑完最后一关谁赢。
 
    三条原则：
    1. 服务器是唯一权威。目标文本在服务器手上，客户端每推进一段就要把那段字符
-      交上来，服务器对着文本比；不匹配就把权威位置推回去（resync）。客户端能做的
-      只是"申请前进"，改不了名次。
-   2. 名次和时间都用服务器时钟：开赛时间是 Date.now() + 3 秒，各人自己算倒计时。
+      交上来，服务器对着**他当前那一关**的文本比；不匹配就把权威位置推回去（resync）。
+      客户端能做的只是"申请前进"，改不了名次。
+   2. 过一关就立刻进下一关，不必等别人 —— 所以每个人各有各的 level / pos，
+      塔上只画同关的人（客户端按 level 过滤）。
+   3. 名次和时间都用服务器时钟：开赛时间是 Date.now() + 3 秒，各人自己算倒计时。
       绝不能让每个客户端各自 3-2-1 —— 那样网络慢的人天然吃亏。
-   3. 房间号由客户端指定（老师写在黑板上的 py1 就是这间房的身份）。
-      onCreate 里覆盖 roomId，配合 index.js 的 filterBy(["code"]) 让同号的并发创建
-      被串行化；万一还是撞了，抢输的那间会退回随机房号，客户端发现房号对不上会
-      重新 joinById(房间号) —— 自己修好，见 ownsCode。 */
+
+   房间号由客户端指定（老师写在黑板上的 py1 就是这间房的身份），见 index.js 的
+   filterBy(["code"])；万一并发里撞了，抢输的那间会退回随机房号，客户端发现房号
+   对不上会重新 joinById(房间号) —— 自己修好，见 ownsCode。 */
 
 import { Room } from "@colyseus/core";
 import { RaceState, Player } from "../schema.js";
@@ -69,7 +71,7 @@ export class TypingRoom extends Room {
     this.countdown = null;
 
     this.setState(new RaceState());
-    this.applyLevel(this.levels.find(function (l) { return l.id === opt.levelId; }) || this.levels[0]);
+    this.applyCourse(opt.levelId);
 
     this.onMessage("progress", (client, msg) => this.onProgress(client, msg));
     this.onMessage("name", (client, msg) => this.onName(client, msg));
@@ -81,16 +83,12 @@ export class TypingRoom extends Room {
       now: Date.now(),
     }));
 
-    console.log(`[typing] room created  id=${this.roomId}  code=${code || "-"}  level=${this.state.levelId}`);
+    console.log(`[typing] room created  id=${this.roomId}  code=${code || "-"}  course=${this.state.levelIds.join(">")}`);
   }
 
   onJoin(client, options) {
     const p = new Player();
     p.name = cleanName(options && options.name, this.state.players.size + 1);
-    p.pos = 0;
-    p.place = 0;
-    p.timeMs = 0;
-    p.connected = true;
     this.state.players.set(client.sessionId, p);
     console.log(`[typing] ${this.roomId} <- ${p.name} (${this.state.players.size} in room)`);
   }
@@ -116,29 +114,47 @@ export class TypingRoom extends Room {
     console.log(`[typing] room disposed  id=${this.roomId}`);
   }
 
-  /* ------------------------------- 局 ------------------------------- */
+  /* ------------------------------- 赛道 ------------------------------- */
 
-  applyLevel(lv) {
-    this.state.levelId = lv.id;
-    this.state.text = lv.text;
+  /* 赛道 = 从选定的起始关卡一路打到题库最后一关。
+     老师想短一点就从后面几关起跑；起跑点只有大堂里能改。 */
+  applyCourse(startId) {
+    let at = 0;
+    for (let i = 0; i < this.levels.length; i++) if (this.levels[i].id === startId) at = i;
+    this.run = this.levels.slice(at);
+
+    this.state.startLevelId = this.run[0].id;
+    this.state.levelIds.clear();
+    this.state.texts.clear();
+    this.run.forEach((lv) => {
+      this.state.levelIds.push(lv.id);
+      this.state.texts.push(lv.text);
+    });
+
     this.state.startsAt = 0;
     this.state.phase = PHASE.LOBBY;
     this.ranker = 0;
-    this.state.players.forEach((p) => {
-      p.pos = 0;
-      p.place = 0;
-      p.timeMs = 0;
-    });
+    this.state.players.forEach((p) => this.resetPlayer(p));
+  }
+
+  resetPlayer(p) {
+    p.level = 0;
+    p.pos = 0;
+    p.place = 0;
+    p.timeMs = 0;
+  }
+
+  textFor(p) {
+    return this.state.texts[p.level] === undefined ? "" : this.state.texts[p.level];
   }
 
   onLevel(client, msg) {
     if (this.state.phase !== PHASE.LOBBY && this.state.phase !== PHASE.DONE) return;
     const id = msg && msg.id;
-    const lv = this.levels.find(function (l) { return l.id === id; });
-    if (!lv) return;
+    if (!this.levels.some(function (l) { return l.id === id; })) return;
     if (this.countdown) { clearTimeout(this.countdown); this.countdown = null; }
-    this.applyLevel(lv);
-    console.log(`[typing] ${this.roomId} level -> ${lv.id}`);
+    this.applyCourse(id);
+    console.log(`[typing] ${this.roomId} course -> ${this.state.levelIds.join(">")}`);
   }
 
   startRace() {
@@ -150,11 +166,7 @@ export class TypingRoom extends Room {
     ghosts.forEach((id) => this.state.players.delete(id));
 
     this.ranker = 0;
-    this.state.players.forEach((p) => {
-      p.pos = 0;
-      p.place = 0;
-      p.timeMs = 0;
-    });
+    this.state.players.forEach((p) => this.resetPlayer(p));
 
     this.state.raceNo += 1;
     this.state.startsAt = Date.now() + COUNTDOWN_MS;   /* 服务器时间，各人自己换算 */
@@ -166,7 +178,7 @@ export class TypingRoom extends Room {
       if (this.state.phase === PHASE.COUNTDOWN) this.state.phase = PHASE.RACING;
     }, COUNTDOWN_MS);
 
-    console.log(`[typing] ${this.roomId} race #${this.state.raceNo} on ${this.state.levelId}`);
+    console.log(`[typing] ${this.roomId} race #${this.state.raceNo} over ${this.state.levelIds.length} level(s)`);
   }
 
   endRace() {
@@ -179,13 +191,12 @@ export class TypingRoom extends Room {
   /* 掉线不算数：只有还在线的都跑完了，这场才算完 */
   maybeFinish() {
     if (this.state.phase !== PHASE.RACING) return;
-    const total = this.state.text.length;
     let racing = 0;
     let finished = 0;
     this.state.players.forEach((p) => {
       if (!p.connected) return;
       racing += 1;
-      if (p.pos >= total) finished += 1;
+      if (p.place > 0) finished += 1;
     });
     if (racing > 0 && finished === racing) this.endRace();
   }
@@ -198,7 +209,7 @@ export class TypingRoom extends Room {
     if (this.state.phase !== PHASE.RACING) return;
     if (!this.underBudget(client.sessionId)) return;   /* 刷屏的直接丢，不回包，免得反向放大流量 */
 
-    const text = this.state.text;
+    const text = this.textFor(p);
     const pos = msg && typeof msg.pos === "number" ? Math.floor(msg.pos) : -1;
     if (pos < 0 || pos > text.length) return this.resync(client, p);
     if (pos === p.pos) return;
@@ -206,24 +217,34 @@ export class TypingRoom extends Room {
     if (pos > p.pos) {
       /* 往前走：必须把经过的那段字符一起交上来，服务器自己跟文本比 */
       const chunk = msg && typeof msg.chunk === "string" ? msg.chunk : null;
-      const expected = text.slice(p.pos, pos);
-      if (chunk === null || chunk !== expected) return this.resync(client, p);
+      if (chunk === null || chunk !== text.slice(p.pos, pos)) return this.resync(client, p);
     }
     /* 往后退（改错）放行 */
 
     p.pos = pos;
+    if (p.pos >= text.length) this.clearLevel(p);
+  }
 
-    if (p.pos >= text.length && p.place === 0) {
+  /* 打完一关：直接进下一关；已经是最后一关就整场跑完，记名次和总用时 */
+  clearLevel(p) {
+    const last = this.state.levelIds.length - 1;
+    if (p.level < last) {
+      p.level += 1;
+      p.pos = 0;
+      console.log(`[typing] ${this.roomId} ${p.name} -> level ${p.level + 1}/${this.state.levelIds.length}`);
+      return;
+    }
+    if (p.place === 0) {
       this.ranker += 1;
       p.place = this.ranker;
       p.timeMs = Math.max(1, Date.now() - this.state.startsAt);
-      console.log(`[typing] ${this.roomId} #${p.place} ${p.name} ${p.timeMs}ms`);
+      console.log(`[typing] ${this.roomId} #${p.place} ${p.name} ${p.timeMs}ms (all ${this.state.levelIds.length} levels)`);
       this.maybeFinish();
     }
   }
 
   resync(client, p) {
-    client.send("resync", { pos: p.pos });
+    client.send("resync", { pos: p.pos, level: p.level });
   }
 
   underBudget(sessionId) {

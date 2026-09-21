@@ -54,6 +54,11 @@
 /* 开赛倒计时期间整块淡下来：能看清要打什么，但还不能敲 */
 .code.waiting .ch.cur { background: transparent; box-shadow: none; color: var(--dim-2); }
 
+/* 过一关换下一关时闪一下，让"换了一关"这件事看得见 */
+.code.advance { animation: codeAdvance .5s ease-out; }
+@keyframes codeAdvance {
+  from { background: rgba(74, 124, 255, .18); border-color: var(--accent); }
+}
 @keyframes chShake {
   0%, 100% { transform: translateX(0); }
   30% { transform: translateX(-3px); }

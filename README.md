@@ -189,9 +189,16 @@ rather than an `<input>`, so `Space` will not scroll the page and `Tab` will not
 focus — the price is that composition events have to be ignored by hand, so **turn your IME
 off before you start**.
 
-**Solo vs. a race.** Add `?room=<code>` and the game becomes a race against everyone else
-in that room, on the same text. Each player's avatar climbs the tower on the right: the
-vertical position is that player's progress, and the finish line is the top.
+**Solo vs. a race.** Add `?room=<code>` and the same drill becomes a race against everyone
+else in that room. A race is a **course**: the levels from the chosen starting level to the
+end of the bank, in order. Clear a level and you are moved straight on to the next one — you
+never wait for anybody, so the field spreads out across the course, and the first player to
+finish the last level wins.
+
+Each player's avatar climbs the tower on the right, and the tower shows **only the people on
+your own level**, on the same text as you: the vertical position is how far they are through
+*that* level, and the finish line is the top. The line above the tower says which level you
+are on and how many others are there with you.
 
 ```bash
 cd server && npm ci && npm start     # room server on ws://localhost:2568
@@ -201,22 +208,29 @@ cd server && npm ci && npm start     # room server on ws://localhost:2568
 | --- | --- |
 | `room=<code>` | join that room, creating it if nobody has yet |
 | `room=` / `room=new` | make a new room with a random code |
+| `username=<name>` | your name in the room (otherwise remembered, then generated) |
 | `ws=<url>` | where the room server is (default: this host, port 2568) |
-| `level=<n>` / `id=<id>` | which level a *new* room starts on |
+| `level=<n>` / `id=<id>` | which level a *new* room starts its course on |
 | `all=1` `json=<url>` `embed=1` | as in the other games; `json=` only affects solo |
+
+`?username=` is what makes one link per student possible: `?room=py1&username=Ada` drops Ada
+straight into the room under her own name. It is remembered from then on, and the *invite*
+link deliberately carries the room code without it — copying a link hands over the room, not
+your identity.
 
 Rooms are addressed by the code the client picks, so a code written on the board works:
 the first player to open it creates the room, everyone else joins by code. The room server
-is the authority — it holds the text and checks every character a client claims to have
-typed, so a client can only *ask* to move forward. The race starts on a **server**
-timestamp (`startsAt`, set three seconds ahead — never a per-client 3-2-1) so a slow
-connection does not cost you the start, and places and times are the server's too. Drop out
-mid-race and your avatar greys out rather than vanishing; the race still ends when everyone
-still connected is done, and anyone can end it early.
+is the authority — it holds the text of every level in the course and checks each character a
+client claims to have typed, so a client can only *ask* to move forward, and only *says*
+which level it is on. The race starts on a **server** timestamp (`startsAt`, set three
+seconds ahead — never a per-client 3-2-1) so a slow connection does not cost you the start;
+places and times are the server's too, and the clock runs for the whole course rather than
+restarting at each level. Drop out mid-race and your avatar greys out rather than vanishing;
+the race still ends when everyone still connected is finished, and anyone can end it early.
 
-Two things are deliberately *not* synced: typos and WPM stay local, because the server
-never sees individual keystrokes and should not pretend to know. And no result card pops up
-while other people are still typing — the finisher's avatar pins to the top and turns gold,
+Two things are deliberately *not* synced: typos and WPM stay local, because the server never
+sees individual keystrokes and should not claim to know. And no result card is shown to the
+first player home while others are still typing — their avatar pins to the top and turns gold,
 so they can watch the rest of the race.
 
 The whole multiplayer layer is a dynamic `import()`, so `colyseus.js` is a separate chunk

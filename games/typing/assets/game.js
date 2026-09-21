@@ -1,17 +1,20 @@
 /* Python 代码打字：照着敲出每一行 Python，标点、引号、缩进都要一模一样。
 
-   两种模式共用同一套判定 —— 核心只有一个数：「已经完成几个字符」board.pos。
+   两种模式共用同一套判定 —— 核心只有一个数：「这一关已经完成几个字符」board.pos。
      · 单人：pos 就是本地真相。正计时、没有上限，比的是准确率和速度。
-     · 多人：大家打同一段代码，pos 由服务器裁决。本地先乐观前进（不然一个来回
-       就卡一下），服务器说不对就把权威位置推回来。
+     · 多人：一场比赛是一串关卡，谁先跑完最后一关谁赢。过一关**立刻**进下一关，
+       不必等别人，所以每个人各有各的关卡和位置；塔上只画同关的人。
+       pos 由服务器裁决：本地先乐观前进（不然一个来回就卡一下），
+       服务器说不对就把权威位置推回去（resync）。
    计时两处都是正计时：单人用 src/game-ui/timer.js 的 createStopwatch；
-   多人用服务器时钟现算（raceTick），因为开赛时刻是服务器给的。
-   进度条那一条滑块也从"还剩多少"变成"打完了多少"（createBar）。
+   多人用服务器时钟现算（raceTick），因为开赛时刻是服务器给的 ——
+   整场跑完才停表，中途过多少关都算在同一条时间里。
+   进度条那一条滑块也从"还剩多少"变成"这一关打完了多少"（createBar）。
 
    判定模型：
      敲对 → pos 前进；敲错 → 原地红闪（多人时错误数只是本地的展示值 ——
      服务器看不见按键，也就不该声称知道）
-     Backspace 退回（改错不算错）；Tab 一次顶四个空格；必须整个敲完才算过关 */
+     Backspace 退回（改错不算错）；Tab 一次顶四个空格；必须整个敲完才算过一关 */
 
 import bank from "../levels.json";
 import en from "./locales/en.js";
@@ -223,6 +226,9 @@ function canType() {
   if (isCelebrating()) return false;
   if (mode === MODE.SOLO) return !!solo && !solo.done;
   if (!race || race.localDone) return false;
+  /* 刚过一关、下一关还没从服务器发下来：这一小会儿先别收键，
+     否则那几个字符会按旧关卡的文本去校验，白敲 */
+  if (race.advancing) return false;
   if (race.phase === PHASE.RACING) return true;
   /* 倒计时按本地时间自己解开：不能等服务器那一条 patch 到了才让敲，
      否则网络差的人白白晚起跑（服务器照样会拒绝提前的按键）。 */
@@ -257,13 +263,21 @@ function typeChunk(chunk) {
     return;
   }
   net.progress(board.pos, chunk);
-  if (board.pos >= board.chars.length) {
+  if (board.pos < board.chars.length) {
+    syncBoard();
+    paintBar();
+    paintStats();
+    return;
+  }
+  /* 这一关打完了。最后一关 → 整场跑完，等服务器给名次；
+     否则等服务器把下一关发下来（通常几十毫秒），这期间先不收键。 */
+  if (race.myLevel >= race.lastLevel) {
     race.localMs = Math.max(0, net.serverNow() - race.startsAt);
     race.localDone = true;
-    syncBoard();
-    paintStats();
     el("hint").innerHTML = t("ui.waitingOthers");
-    return;
+  } else {
+    race.advancing = true;
+    el("hint").innerHTML = t("ui.levelCleared");
   }
   syncBoard();
   paintBar();
@@ -427,12 +441,39 @@ function toList() {
 
 /* ------------------------------ 多人 ------------------------------ */
 
+/* 名字：?username=Ada 最优先 —— 老师可以把名字写进链接发给每个人。
+   其次是上次存下来的，最后才随便给一个"玩家 37"。 */
+function cleanNameInput(v) {
+  return String(v === undefined || v === null ? "" : v)
+    .replace(/[\u0000-\u001f\u007f]/g, "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 16);
+}
+
+function usernameFromUrlSafe() {
+  try {
+    return cleanNameInput(new URLSearchParams(location.search).get("username"));
+  } catch (e) {
+    return "";
+  }
+}
+
+function rememberName(name) {
+  try { localStorage.setItem(NAME_KEY, name); } catch (e) { /* 无痕模式 */ }
+}
+
 function playerName() {
+  const fromUrl = usernameFromUrlSafe();
+  if (fromUrl) {
+    rememberName(fromUrl);
+    return fromUrl;
+  }
   let saved = "";
-  try { saved = localStorage.getItem(NAME_KEY) || ""; } catch (e) { /* 无痕模式 */ }
+  try { saved = localStorage.getItem(NAME_KEY) || ""; } catch (e) { /* ignore */ }
   if (saved) return saved;
   const auto = t("ui.playerNo", { n: 1 + Math.floor(Math.random() * 99) });
-  try { localStorage.setItem(NAME_KEY, auto); } catch (e) { /* ignore */ }
+  rememberName(auto);
   return auto;
 }
 
@@ -515,13 +556,18 @@ async function enterRace(code) {
   netMod.writeRoomToUrl(net.roomId);
   race = {
     code: net.roomId,
-    levelId: "",
+    startLevelId: "",
+    myLevel: 0,        /* 我跑到第几关（下标） */
+    lastLevel: 0,      /* 赛道最后一关的下标 */
+    rendered: false,   /* 第一关的文本画过了没 —— 只有画过之后换关才闪一下 */
     raceNo: 0,
     phase: "",
     lastPhase: "",
     startsAt: 0,
-    localDone: false,
+    advancing: false,  /* 过关了、下一关还没到手的这一小会儿 */
+    localDone: false,  /* 整条赛道跑完了 */
     localMs: 0,
+    charsDone: 0,      /* 已经打完的那几关一共多少字符（用来算整场 WPM） */
     resultShown: false,
     mod: netMod,
   };
@@ -538,11 +584,22 @@ async function enterRace(code) {
   el("btnRetry").textContent = t("ui.raceAgain");
 
   net.room.onMessage("resync", function (msg) {
-    /* 服务器不认这次前进：退回它认定的位置 */
+    /* 服务器不认这次前进：退回它认定的位置（它说的关卡也算） */
     if (!race) return;
+    const lv = msg && typeof msg.level === "number" ? msg.level : race.myLevel;
+    if (lv !== race.myLevel) {
+      race.myLevel = lv;
+      race.advancing = false;
+      resetTyping();
+      renderBoard(levelText(lv));
+      paintBar();
+      paintStats();
+      return;
+    }
     const pos = msg && typeof msg.pos === "number" ? msg.pos : 0;
     if (pos < board.pos) {
       board.pos = pos;
+      race.advancing = false;
       syncBoard();
       paintBar();
       paintStats();
@@ -604,9 +661,14 @@ function bindRoomInputs() {
   if (!input.dataset.bound) {
     input.dataset.bound = "1";
     input.addEventListener("change", function () {
-      const v = input.value.trim().slice(0, 16);
-      if (!v) return;
-      try { localStorage.setItem(NAME_KEY, v); } catch (e) { /* ignore */ }
+      const v = cleanNameInput(input.value);
+      if (!v) {
+        input.value = playerName();
+        return;
+      }
+      input.value = v;
+      rememberName(v);
+      if (race) race.mod.writeNameToUrl(v);   /* 写回地址栏，刷新之后名字还在 */
       if (net) net.setName(v);
     });
   }
@@ -616,7 +678,7 @@ function bindRoomInputs() {
 
 function renderLevelPicker() {
   const sel = el("levelPick");
-  const want = net && net.room.state ? net.room.state.levelId : "";
+  const want = net && net.room.state ? net.room.state.startLevelId : "";
   if (sel.options.length !== levels.length) {
     sel.innerHTML = "";
     levels.forEach(function (lv) {
@@ -629,43 +691,79 @@ function renderLevelPicker() {
   if (want) sel.value = want;
 }
 
-/* 服务器是权威：位置、名次、时间都从 state 上读，本地只负责画 */
+/* 我这一关的目标文本。文本随 state 一起下来，客户端不去题库里自己找 ——
+   服务器拿它校验，两边必须是同一份。 */
+function levelText(i) {
+  const st = net && net.room ? net.room.state : null;
+  if (!st || !st.texts) return "";
+  const s = st.texts[i];
+  return s === undefined || s === null ? "" : s;
+}
+
+function levelTitleById(id) {
+  return lvText(levelById(id), "title") || id;
+}
+
+/* 过一关时闪一下，让"换了一关"这件事看得见 */
+function flashCode() {
+  const box = el("code");
+  box.classList.remove("advance");
+  void box.offsetWidth;
+  box.classList.add("advance");
+}
+
+/* 服务器是权威：关卡、位置、名次、时间都从 state 上读，本地只负责画。
+   过一关就立刻换成下一关的文本 —— 不必等别人，这就是这一版的全部意思。 */
 function onRoomState() {
   if (!race || !net || !net.room.state) return;
   const st = net.room.state;
-  if (!st.players) return;
+  if (!st.players || !st.texts) return;
 
   if (st.raceNo !== race.raceNo) {
+    /* 新的一场：所有人回到赛道第一关 */
     race.raceNo = st.raceNo;
     race.resultShown = false;
     race.localDone = false;
     race.localMs = 0;
+    race.advancing = false;
+    race.myLevel = 0;
+    race.rendered = false;
+    race.charsDone = 0;
     race.startsAt = st.startsAt;
-    resetTyping();
-    if (st.text !== board.text) renderBoard(st.text);
-    else syncBoard();
-    paintBar();
   }
 
-  if (st.levelId !== race.levelId) {
-    race.levelId = st.levelId;
+  if (st.startLevelId !== race.startLevelId) {
+    race.startLevelId = st.startLevelId;
     renderLevelPicker();
   }
 
-  if (st.text !== board.text) {
-    /* 在结算里换了关卡：文本变了，位置重新从 0 开始 */
+  race.lastLevel = Math.max(0, st.levelIds.length - 1);
+
+  const me = st.players.get(net.sessionId);
+  if (me && me.level !== race.myLevel) {
+    race.charsDone += board.chars.length;   /* 刚打完那一关的长度 */
+    race.myLevel = me.level;
+    race.advancing = false;      /* 下一关到手了，可以接着敲 */
+  }
+  if (me && me.place > 0) {
+    race.localDone = true;       /* 整条赛道跑完了 */
+    race.advancing = false;
+    if (me.timeMs > 0) race.localMs = me.timeMs;   /* 服务器给出的用时才是准的 */
+  }
+
+  /* 该画哪一关的文本：第一次画、换了关卡、房间换了赛道，都是这一条 */
+  const want = levelText(race.myLevel);
+  if (!race.rendered || race.renderedLevel !== race.myLevel) {
     resetTyping();
-    renderBoard(st.text);
+    renderBoard(want);
     paintBar();
-    race.localDone = false;
-    race.localMs = 0;
+    if (race.rendered) flashCode();
+    race.renderedLevel = race.myLevel;
   }
 
   race.phase = st.phase;
   race.startsAt = st.startsAt;
-
-  const me = st.players.get(net.sessionId);
-  if (me && me.timeMs > 0) race.localMs = me.timeMs;   /* 服务器给出的用时才是准的 */
+  if (race.phase === PHASE.DONE) race.advancing = false;
 
   if (race.lastPhase !== race.phase) {
     onPhaseChanged(race.lastPhase, race.phase);
@@ -676,6 +774,7 @@ function onRoomState() {
   renderRoster();
   paintRacePanels();
   paintStats();
+  race.rendered = true;
 
   if (st.phase === PHASE.DONE) showRaceResult();
 }
@@ -747,35 +846,51 @@ function paintRacePanels() {
 
 function phaseHint() {
   const st = net.room.state;
-  const chars = st.text.length;
+  const levels = Math.max(1, st.levelIds.length);
   if (race.phase === PHASE.LOBBY) {
-    return t("ui.raceLead", { chars: chars }) + " · " + lvText(levelById(st.levelId), "title");
+    return t("ui.raceLead", { level: 1, levels: levels });
   }
   if (race.phase === PHASE.COUNTDOWN) return t("ui.countdownHint");
-  if (race.phase === PHASE.RACING) return t("ui.racingHint", { chars: chars });
+  if (race.phase === PHASE.RACING) {
+    return t("ui.racingHint", { level: race.myLevel + 1, levels: levels, chars: levelText(race.myLevel).length }) +
+      " · " + levelTitleById(st.levelIds[race.myLevel]);
+  }
   return t("ui.doneHint");
 }
 
+/* 房间那一行：我在第几关、同关有几个人、房间一共几个人。
+   塔上只画同关的人，所以"同关几个"得写出来，否则塔上只剩自己会莫名其妙。 */
 function renderRoster() {
   const st = net.room.state;
   const box = el("roster");
   box.innerHTML = "";
+  let here = 0;
   st.players.forEach(function (p, id) {
+    if (p.level === race.myLevel) here += 1;
     const c = document.createElement("span");
     c.className = "rc" + (id === net.sessionId ? " me" : "") + (p.connected ? "" : " off");
     c.textContent = avatarFor(id) + " " + p.name + (id === net.sessionId ? " " + t("ui.you") : "");
+    c.title = t("ui.onLevel", { n: p.level + 1 });
     box.appendChild(c);
   });
-  el("roomMeta").textContent = t("ui.playersInRoom", { n: st.players.size });
+  el("roomMeta").textContent = t("ui.roomMeta", {
+    level: race.myLevel + 1,
+    levels: Math.max(1, st.levelIds.length),
+    here: here,
+    room: st.players.size,
+  });
 }
 
-/* 头像塔：纵向位置 = 已完成的比例。同一泳道里挨得太近的往上抬一点，别叠成一团。 */
+/* 头像塔：只画和我同一关的人，纵向位置 = 他在这一关打完的比例。
+   同一泳道里挨得太近的往上抬一点，别叠成一团。 */
 function renderTower() {
   const st = net.room.state;
-  const total = Math.max(1, st.text.length);
+  const my = race.myLevel;
+  const total = Math.max(1, levelText(my).length);
   const list = [];
   let i = 0;
   st.players.forEach(function (p, id) {
+    if (p.level !== my) return;          /* 别的关卡的人不在这张图上 */
     list.push({
       id: id,
       name: p.name,
@@ -849,17 +964,22 @@ function showRaceResult() {
   const st = net.room.state;
   const me = st.players.get(net.sessionId);
   const total = st.players.size;
+  const levels = Math.max(1, st.levelIds.length);
   const place = me ? me.place : 0;
+  const reached = place > 0 ? levels : (me ? me.level + 1 : 1);
   const ms = me && me.timeMs > 0 ? me.timeMs : race.localMs;
   const seconds = Math.max(1, Math.round(ms / 1000) || 1);
   const acc = accuracyPct();
   const errors = stats.errors;
-  const speed = Math.round((board.pos / 5) / (seconds / 60));
+  /* 整条赛道一共敲过的字符：打完的几关 + 手上这一关的进度 —— 这样 WPM 才是整场的 */
+  const chars = race.charsDone + board.pos;
+  const speed = Math.round((chars / 5) / (seconds / 60));
+  const lastId = st.levelIds[race.myLevel];
 
   reportResult(GAME_ID, {
-    level: levelNoById(st.levelId),
-    levelId: st.levelId,
-    levelTitle: lvText(levelById(st.levelId), "title"),
+    level: levelNoById(lastId),
+    levelId: lastId,
+    levelTitle: levelTitleById(lastId),
     correct: stats.hits,
     total: stats.keys,
     rate: stats.keys ? stats.hits / stats.keys : 1,
@@ -871,7 +991,9 @@ function showRaceResult() {
     room: net.roomId,
     place: place,
     players: total,
-    chars: st.text.length,
+    levels: levels,
+    reached: reached,
+    chars: chars,
     wpm: speed,
     accuracy: acc,
     errors: errors,
@@ -882,7 +1004,8 @@ function showRaceResult() {
     title: place === 1 ? t("ui.raceWon") : t("ui.raceOver"),
     lines: [
       place > 0 ? t("ui.racePlace", { place: place, total: total }) : t("ui.raceDnf"),
-      t("ui.doneIn", { time: formatElapsed(ms) }),
+      place > 0 ? t("ui.raceTime", { levels: levels, time: formatElapsed(ms) })
+                : t("ui.coursePartial", { done: reached, levels: levels }),
       t("ui.raceStats", { wpm: speed, acc: acc, err: errors }),
     ],
     actionLabel: t("ui.raceAgain"),
