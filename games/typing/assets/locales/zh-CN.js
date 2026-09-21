@@ -69,7 +69,7 @@ export default {
     raceStats: "{wpm} WPM · 正确率 {acc}% · 敲错 {err} 次",
 
     connecting: "正在进入房间……",
-    connectFailed: "连不上房间服务器\n{msg}\n可以先用 cd server && npm start 起一个，或者用 ?ws=ws://主机:2567 指定地址",
+    connectFailed: "连不上房间服务器\n{msg}\n可以先用 cd server && npm start 起一个，或者用 ?ws=ws://主机:2568 指定地址",
     roomClosed: "房间服务器关掉了这个房间。",
 
     loadFailed: "加载关卡失败\n{msg}",

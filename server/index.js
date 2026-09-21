@@ -1,6 +1,7 @@
 /* 打字竞速的房间服务器。一个进程、一个端口，和站点（静态 nginx）分开跑。
 
-   ws://localhost:2567  ←  客户端用 ?ws= 覆盖，默认按当前页面的主机名 + 2567 推。
+   ws://localhost:2568  ←  客户端用 ?ws= 覆盖，默认按当前页面的主机名 + 2568 推。
+   端口用 PORT 环境变量改（部署机上就把 2568 开在防火墙里）。
 
    两个和"房间号由客户端指定"有关的关键点：
    - onCreate 里覆盖 roomId（见 rooms/TypingRoom.js）
@@ -11,7 +12,7 @@ import { Server } from "@colyseus/core";
 import { WebSocketTransport } from "@colyseus/ws-transport";
 import { TypingRoom, ROOM_NAME } from "./rooms/TypingRoom.js";
 
-const PORT = Number(process.env.PORT || 2567);
+const PORT = Number(process.env.PORT || 2568);
 const HOST = process.env.HOST || "0.0.0.0";
 
 const server = new Server({

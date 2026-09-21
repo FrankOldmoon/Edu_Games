@@ -74,7 +74,7 @@ export default {
     raceStats: "{wpm} WPM · {acc}% accurate · {err} typos",
 
     connecting: "Connecting to the room…",
-    connectFailed: "Could not reach the room server\n{msg}\nRun one with: cd server && npm start — or pass ?ws=ws://host:2567",
+    connectFailed: "Could not reach the room server\n{msg}\nRun one with: cd server && npm start — or pass ?ws=ws://host:2568",
     roomClosed: "The room server closed this room.",
 
     loadFailed: "Could not load the levels\n{msg}",

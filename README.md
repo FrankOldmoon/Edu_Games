@@ -194,14 +194,14 @@ in that room, on the same text. Each player's avatar climbs the tower on the rig
 vertical position is that player's progress, and the finish line is the top.
 
 ```bash
-cd server && npm ci && npm start     # room server on ws://localhost:2567
+cd server && npm ci && npm start     # room server on ws://localhost:2568
 ```
 
 | Parameter | Meaning |
 | --- | --- |
 | `room=<code>` | join that room, creating it if nobody has yet |
 | `room=` / `room=new` | make a new room with a random code |
-| `ws=<url>` | where the room server is (default: this host, port 2567) |
+| `ws=<url>` | where the room server is (default: this host, port 2568) |
 | `level=<n>` / `id=<id>` | which level a *new* room starts on |
 | `all=1` `json=<url>` `embed=1` | as in the other games; `json=` only affects solo |
 
@@ -355,14 +355,44 @@ The typing game's room server is a **second, optional** thing: it has its own
 Only the multiplayer half needs it:
 
 ```bash
-cd server && npm ci && npm start        # ws://0.0.0.0:2567 — systemd/pm2 it if you like
+cd server && npm ci && npm start        # ws://0.0.0.0:2568 — systemd/pm2 it if you like
 ```
 
-It serves WebSocket and the matchmaking POSTs; the browser reaches it on port 2567 of
-whatever host served the page unless `?ws=` says otherwise. On an `https://` page the
-default becomes `wss://`, so a reverse proxy has to terminate TLS there. One process is
-enough for a classroom; the room-code registry is per-process, so more than one would need
-`@colyseus/redis-presence` and a shared driver.
+It serves WebSocket and the matchmaking POSTs; the browser reaches it on port 2568 of
+whatever host served the page unless `?ws=` says otherwise, so that port has to be open on
+the host and in any firewall in front of it. Change it with `PORT=…` — keep the client's
+`?ws=` in step if you move it. On an `https://` page the default becomes `wss://`, so a
+reverse proxy has to terminate TLS there. One process is enough for a classroom; the
+room-code registry is per-process, so more than one would need `@colyseus/redis-presence`
+and a shared driver.
+
+### Updating a running deployment
+
+`git pull` and `npm ci` are the whole site, but two details bite:
+
+- **Use `npm ci`, not a floating install.** The lockfile is committed, and `npm ci` is the
+  only command that guarantees the deployed tree matches it. `pnpm i` and `npm i` ignore
+  `package-lock.json` (pnpm wants its own lockfile) and will happily install newer versions
+  of everything.
+- **Do not mix `sudo` into a step.** Running one command as root leaves root-owned files in
+  `.git` and `node_modules`; the next unprivileged `npm ci` or `npm run build` then fails on
+  them. Run the whole sequence as whoever owns the directory, or as the same user every
+  time.
+
+```bash
+set -euo pipefail                      # a failed pull must stop the deploy, not get built over
+cd /path/to/edu_games
+git fetch --prune origin
+git pull --ff-only origin main         # ff-only: local edits on the server should fail loudly
+
+export PATH=/path/to/node/bin:$PATH    # one toolchain for the whole script
+npm ci
+npm run build
+
+# only if you run the room server: its dependencies and its process are separate
+cd server && npm ci
+pm2 restart typing-room || pm2 start index.js --name typing-room
+```
 
 Prefer `npm ci` over `npm install` — it installs exactly what the lockfile pins and never
 rewrites `package-lock.json`, which keeps the working tree clean on both machines.

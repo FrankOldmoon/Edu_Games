@@ -35,13 +35,15 @@ export function codeFromUrl() {
   return /^[a-z0-9][a-z0-9_-]{0,23}$/.test(s) ? s : randomCode();
 }
 
-/* ?ws=wss://example.com 覆盖；默认按当前页面所在主机 + 2567 推。
+/* ?ws=wss://example.com 覆盖；默认按当前页面所在主机 + DEFAULT_PORT 推。
    https 页面必须走 wss（否则浏览器按混合内容拦掉），所以要在前面配一层反代。 */
+const DEFAULT_PORT = 2568;
+
 export function serverUrl() {
   const given = q("ws");
   if (given) return given;
   const secure = location.protocol === "https:";
-  return (secure ? "wss://" : "ws://") + location.hostname + ":2567";
+  return (secure ? "wss://" : "ws://") + location.hostname + ":" + DEFAULT_PORT;
 }
 
 /* 把 ?room= 写回地址栏（不动别的参数），这样"复制链接"给的就是真实房号 */
