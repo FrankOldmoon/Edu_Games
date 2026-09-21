@@ -234,7 +234,9 @@ the race still ends when everyone still connected is finished, and anyone can en
 Two things are deliberately *not* synced: typos and WPM stay local, because the server never
 sees individual keystrokes and should not claim to know. And no result card is shown to the
 first player home while others are still typing — their avatar pins to the top and turns gold,
-so they can watch the rest of the race.
+so they can watch the rest of the race. When the race does end, everyone's card arrives three
+seconds after the fireworks (the shared `celebrate()`, see
+[`docs/game-template.md`](docs/game-template.md)).
 
 The whole multiplayer layer is a dynamic `import()`, so `colyseus.js` is a separate chunk
 that is never fetched for solo play: the game still works offline, and `?room=` on a machine

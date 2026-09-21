@@ -131,7 +131,12 @@ button.lv { cursor: pointer; }
 
 /* ----------------------------- 通关反馈弹框 ----------------------------- */
 /* 半透明遮罩 + 成绩卡；卡片自带一个主按钮，不会自动消失。
-   点遮罩或按 Esc 收掉（收掉后焦点交给调用方）。 */
+   点遮罩或按 Esc 收掉（收掉后焦点交给调用方）。
+   先放烟花、卡片晚 3 秒才弹（见 feedback.js），这几秒里就靠下面那层挡住底下的游戏。 */
+.celebrate-blocker {
+  /* 透明，所以什么都挡不住视觉；在烟花画布（55）下面，也不会把烟花压暗 */
+  position: fixed; inset: 0; z-index: 54; cursor: default;
+}
 .celebrate {
   position: fixed; inset: 0; z-index: 60;
   background: rgba(8, 11, 19, .5); backdrop-filter: blur(2px);

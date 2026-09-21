@@ -173,7 +173,11 @@ reportResult("<id>", {
   两者外观一致，`--i` 依次浮现的顺序也在里面。不要在游戏里再手写一遍卡片标记。
   关卡文案（`name` / `tip`）由调用方按语言包组装好再传进来。
 - `src/game-ui/feedback.js` 的 `celebrate({title, lines, actionLabel, onAction, onDismiss})` —— 半透明通关卡，不会自动消失；
-  默认会放一轮 **通关烟花**（`src/game-ui/fireworks.js` 的 `launchFireworks`），不要就传 `fireworks: false`
+  默认会放一轮 **通关烟花**（`src/game-ui/fireworks.js` 的 `launchFireworks`），不要就传 `fireworks: false`。
+  **烟花先放、卡片 3 秒后才弹**（卡片是模态的，一出来就把刚做完的那一盘盖住了）；这几秒里会铺一层透明的
+  `.celebrate-blocker` 挡住底下的游戏，所以调用方不用自己防"刚赢下的手又点回面板上"。没有烟花可看时
+  （传了 `fireworks: false`，或系统开了"减少动态效果"）卡片直接弹，不让人干等。`isCelebrating()`
+  从调用那一刻就是 true —— 拿它挡输入是对的，别去看卡片在不在 DOM 里。
 - `src/game-ui/timer.js` —— 计时器只有两种，别在游戏里再写第三种：
   - `createCountdown({el, bar, label, onTick, onExpire})` —— 每关**倒计时**，
     数字胶囊（`.clock`）和 slider 进度条（`.timebar`）都在里面；`bar:` 传一个空容器，填充条和滑块由它生成并驱动。
