@@ -32,7 +32,7 @@ export class RoomState extends Schema {
     super();
     /* 题库整个发下去（id 给客户端查本地化标题用，文本是服务器手上的权威副本）。
        两样都发，客户端就不用自己去题库里找 —— 谁也别想和服务器理解得不一样。
-       每人自己选起跑关卡，所以这里发的是整个题库，不是某一局切出来的赛道。 */
+       每个人都是从第 1 关往后打，所以这里发的是整个题库，不是某一局切出来的赛道。 */
     this.levelIds = new ArraySchema();
     this.texts = new ArraySchema();
     this.players = new MapSchema();

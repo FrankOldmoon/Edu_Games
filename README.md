@@ -193,8 +193,8 @@ focus — the price is that composition events have to be ignored by hand, so **
 off before you start**.
 
 **Solo vs. a shared room.** Add `?room=<code>` and you are in the same room as everyone
-else — but **there is no race**. Each player plays their own run, from the starting level they
-pick, on their own. Nobody starts or stops together, there is no countdown and no clock but
+else — but **there is no race**. Each player plays their own run, starting at the first level,
+on their own. Nobody starts or stops together, there is no countdown and no clock but
 your own; clear a level and you move straight on to the next one by yourself. What the room
 *does* sync is presence and progress — who is here, which level they are on and how far
 through it — so everyone can watch each other move.
@@ -217,7 +217,7 @@ cd server && npm ci && npm start     # room server on ws://localhost:2568
 | `room=` / `room=new` | make a new room with a random code |
 | `username=<name>` | your name in the room (otherwise remembered, then generated) |
 | `ws=<url>` | where the room server is (default: this host, port 2568) |
-| `level=<n>` / `id=<id>` | which level the picker starts on |
+| `level=<n>` / `id=<id>` | which level the solo view opens on |
 | `all=1` `json=<url>` `embed=1` | as in the other games; `json=` only affects solo |
 
 `?username=` is what makes one link per student possible: `?room=py1&username=Ada` drops Ada

@@ -2,7 +2,7 @@
 
    两种模式共用同一套判定 —— 核心只有一个数：「这一关已经完成几个字符」board.pos。
      · 单人：pos 就是本地真相。正计时、没有上限，比的是准确率和速度。
-     · 房间（?room=）：**没有比赛**。每个人自己开自己那一局、自己选起跑关卡，
+     · 房间（?room=）：**没有比赛**。每个人自己开自己那一局、从第一关往后打，
        打完一关自己进下一关，谁也不等谁、也不影响谁。房间只做一件事：
        把每个人打到第几关、这一关完成了多少同步给别人 ——
        塔上只画和你**同一关**的人（别人打的是另一段代码时，比位置没有意义）。
@@ -481,16 +481,6 @@ function playerName() {
   return auto;
 }
 
-function requestedLevelId() {
-  const p = params();
-  if (p.id) return p.id;
-  if (p.level) {
-    const n = parseInt(p.level, 10);
-    if (n >= 1 && n <= levels.length) return levels[n - 1].id;
-  }
-  return levels[0].id;
-}
-
 /* 复制邀请链接。教室里的站点多半是 http://，那种情况下 navigator.clipboard 根本不存在，
    所以还要兜一层 execCommand；两层都不行才弹 prompt 让人自己选中。 */
 function copyText(text) {
@@ -579,7 +569,7 @@ async function enterRoom(code) {
   buildLanes();
   bindRoomInputs();
   el("roomBar").hidden = false;
-  el("lobby").hidden = false;     /* 还没点"开始"：挑起跑关卡、改名字、看谁进来了 */
+  el("lobby").hidden = false;     /* 还没点"开始"：改名字、看谁进来了、看从哪一关起步 */
   el("tower").hidden = false;
   el("keytip").innerHTML = t("ui.keyTip");
   el("roomCode").textContent = t("ui.roomLabel", { code: net.roomId });
@@ -651,13 +641,7 @@ function buildLanes() {
 }
 
 function bindRoomInputs() {
-  const sel = el("levelPick");
   const input = el("nameInput");
-  if (!sel.dataset.bound) {
-    sel.dataset.bound = "1";
-    /* 起跑关卡是我自己的选择，改它只换我这边的预览，别人不受影响 */
-    sel.addEventListener("change", function () { renderPreview(); paintHint(); });
-  }
   if (!input.dataset.bound) {
     input.dataset.bound = "1";
     input.addEventListener("change", function () {
@@ -673,41 +657,27 @@ function bindRoomInputs() {
     });
   }
   input.value = playerName();
-  renderLevelPicker();
   renderPreview();
+  paintStartAt();
 }
 
-/* 起跑关卡是**我自己**的：这里选的只决定我这局从哪一关开始，别人选了别的照样各打各的。
-   选项来自服务器发的题库，不去本地题库里找 —— 两边必须是同一份。 */
-function renderLevelPicker() {
+/* 房间里没有"挑关卡"这回事：点开始就从第一关起步。
+   这里读的是服务器发下来的题库，不去本地题库里找 —— 两边必须是同一份。 */
+function firstLevelId() {
   const st = net && net.room ? net.room.state : null;
-  if (!st || !st.levelIds) return;
-  const sel = el("levelPick");
-  if (sel.options.length !== st.levelIds.length) {
-    sel.innerHTML = "";
-    for (let i = 0; i < st.levelIds.length; i++) {
-      const o = document.createElement("option");
-      o.value = st.levelIds[i];
-      o.textContent = levelTitleById(st.levelIds[i]);
-      sel.appendChild(o);
-    }
-    const want = requestedLevelId();
-    if (st.levelIds.indexOf(want) >= 0) sel.value = want;
-  }
+  return st && st.levelIds && st.levelIds[0] ? st.levelIds[0] : "";
 }
 
-function pickedLevelIndex() {
-  const st = net && net.room ? net.room.state : null;
-  const sel = el("levelPick");
-  if (!st || !st.levelIds || !sel) return 0;
-  const at = st.levelIds.indexOf(sel.value);
-  return at < 0 ? 0 : at;
+/* 开始按钮旁边写清楚：一按就从第 1 关起 */
+function paintStartAt() {
+  const id = firstLevelId();
+  if (id) el("startAt").textContent = t("ui.levelNo", { n: 1 }) + " · " + levelTitleById(id);
 }
 
-/* 大堂里先把选中的那一关摊开给你看：代码看得见、但还不能敲 */
+/* 大堂里先把第一关摊开给你看：代码看得见、但还不能敲 */
 function renderPreview() {
   resetTyping();
-  renderBoard(levelText(pickedLevelIndex()));
+  renderBoard(levelText(0));
   el("code").classList.add("waiting");
   paintBar();
   paintStats();
@@ -830,10 +800,10 @@ function onRoomState() {
   paintStats();
 }
 
-/* 大堂里那句说明：自己打自己的，房间里互相看得见进度 */
+/* 大堂里那句说明：自己打自己的，从第一关起步，房间里互相看得见进度 */
 function lobbyLead() {
   const st = net.room.state;
-  return t("ui.roomLead", { level: pickedLevelIndex() + 1, levels: st.levelIds.length });
+  return t("ui.roomLead", { levels: st.levelIds.length });
 }
 
 function roomHint() {
@@ -1038,7 +1008,7 @@ function relocalize() {
   if (!run || !net || !net.room.state) return;
   el("lvName").textContent = t("ui.roomTitle");
   el("roomCode").textContent = t("ui.roomLabel", { code: net.roomId });
-  renderLevelPicker();
+  paintStartAt();
   paintHint();
   paintRoomBar();
   renderRoster();
@@ -1086,9 +1056,9 @@ async function boot() {
     }
   });
   el("btnToList").addEventListener("click", toList);
-  /* 只开始我自己这一局：自己选的起跑关卡，别人完全不受影响 */
+  /* 只开始我自己这一局：一按就从第一关起步，别人完全不受影响 */
   el("btnStart").addEventListener("click", function () {
-    if (net) net.startRun(el("levelPick").value);
+    if (net) net.startRun(firstLevelId());
   });
   el("btnLeave").addEventListener("click", leaveRoom);
   el("btnInvite").addEventListener("click", function () {

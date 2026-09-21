@@ -128,7 +128,7 @@ export async function openRoom(opts) {
     ready: ready,
     progress: function (pos, chunk) { room.send("progress", { pos: pos, chunk: chunk }); },
     setName: function (name) { room.send("name", { name: name }); },
-    /* 开始我自己这一局，从哪一关起跑由我自己定 —— 服务器只记我这一份，不碰别人 */
+    /* 开始我自己这一局，从第一关起步 —— 服务器只记我这一份，不碰别人 */
     startRun: function (levelId) { room.send("start", { levelId: levelId }); },
     leave: function () { try { room.leave(); } catch (e) { /* 已经断了 */ } },
   };

@@ -46,12 +46,11 @@
 
     <div class="arena">
       <div class="pane">
-        <!-- 房间：还没开始时的面板 —— 挑自己的起跑关卡、改名字、看谁进来了。
+        <!-- 房间：还没开始时的面板 —— 改名字、看谁进来了、看从哪一关起步。
              开始之后收起来，那一刻起键盘归判定层 -->
         <div class="lobby" id="lobby" hidden>
           <div class="lobbyrow">
-            <label class="lbl" for="levelPick" data-i18n="ui.startLevel">Starting level</label>
-            <select id="levelPick"></select>
+            <span class="lbl" id="startAt"></span>
             <button class="btn primary" id="btnStart" type="button" data-i18n="ui.startPlaying">Start</button>
           </div>
           <div class="lobbyrow">
