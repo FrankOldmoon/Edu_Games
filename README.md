@@ -221,9 +221,10 @@ cd server && npm ci && npm start     # room server on ws://localhost:2568
 | `all=1` `json=<url>` `embed=1` | as in the other games; `json=` only affects solo |
 
 `?username=` is what makes one link per student possible: `?room=py1&username=Ada` drops Ada
-straight into the room under her own name. It is remembered from then on, and the *invite*
-link deliberately carries the room code without it — copying a link hands over the room, not
-your identity.
+straight into the room under her own name. It is remembered from then on, and while it comes
+from the link the lobby's name box is read-only — the link decides who you are, you do not get
+to type over it. The *invite* link deliberately carries the room code without it, so whoever
+opens it types their own name: copying a link hands over the room, not your identity.
 
 Rooms are addressed by the code the client picks, so a code written on the board works:
 the first player to open it creates the room, everyone else joins by code. The room server

@@ -642,7 +642,8 @@ async function enterRoom() {
       return t("ui.levelNo", { n: 1 }) + " · " + levels[0].name;
     },
     nameDefault: playerName,
-    inviteUrl: function () { return net.mod.inviteUrl(net.code); },
+    nameFixed: !!usernameFromUrlSafe(),   /* ?username= 指定的名字不给改 */
+    inviteUrl: function () { return net.inviteUrl(); },
     /* 点开始：只开我自己这一局 —— 本地摆出第 1 关，同时告诉服务器我开始了 */
     onStart: function () {
       if (!net) return;
@@ -653,7 +654,7 @@ async function enterRoom() {
     onName: function (v) {
       rememberName(v);
       if (net) {
-        net.mod.writeNameToUrl(v);    /* 写回地址栏，刷新之后名字还在 */
+        net.writeNameToUrl(v);        /* 写回地址栏，刷新之后名字还在 */
         net.setName(v);
       }
     },

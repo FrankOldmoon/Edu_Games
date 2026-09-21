@@ -42,6 +42,9 @@ export function createRoomPanel(opts) {
   const labelFor = opts.startLabel || function () { return ""; };
   const avatarFor = opts.avatarFor || defaultAvatar;
   const nameDefault = opts.nameDefault || function () { return "Player"; };
+  /* 名字是链接里带的（?username=Ada）就不能改：老师发的是"你以 Ada 的身份进来"，
+     不是"你来当我"。这时候输入框只用来显示。 */
+  const nameFixed = !!opts.nameFixed;
 
   let code = "";
 
@@ -69,6 +72,10 @@ export function createRoomPanel(opts) {
   nameEl.maxLength = NAME_MAX;
   nameEl.autocomplete = "off";
   nameEl.spellcheck = false;
+  if (nameFixed) {
+    nameEl.readOnly = true;
+    nameEl.classList.add("is-fixed");
+  }
 
   const rosterEl = make("div", "roster");
 
@@ -128,6 +135,7 @@ export function createRoomPanel(opts) {
   leaveBtn.addEventListener("click", function () { if (opts.onLeave) opts.onLeave(); });
   inviteBtn.addEventListener("click", copyInvite);
   nameEl.addEventListener("change", function () {
+    if (nameFixed) { nameEl.value = nameDefault(); return; }
     const v = cleanNameInput(nameEl.value);
     if (!v) { nameEl.value = nameDefault(); return; }
     nameEl.value = v;
@@ -249,6 +257,7 @@ export function createRoomPanel(opts) {
     inviteBtn.textContent = t("room.invite");
     leaveBtn.textContent = t("room.leave");
     nameLbl.textContent = t("room.yourName");
+    if (nameFixed) nameEl.title = t("room.nameFromLink");
     startBtn.textContent = t("room.start");
     railtopEl.textContent = t("room.finishLine");
   }

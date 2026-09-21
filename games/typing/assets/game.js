@@ -534,7 +534,6 @@ async function enterRoom(code) {
     done: false,        /* 自己这一局打完了 */
     charsDone: 0,       /* 已经打完的那几关一共多少字符（用来算这一局的 WPM） */
     resultShown: false,
-    mod: netMod,
   };
 
   panel = panelMod.createRoomPanel({
@@ -549,13 +548,14 @@ async function enterRoom(code) {
       return t("ui.levelNo", { n: 1 }) + " · " + levelTitleById(state.levelIds[0]);
     },
     nameDefault: playerName,
-    inviteUrl: function () { return net.mod.inviteUrl(net.code); },
+    nameFixed: !!usernameFromUrlSafe(),   /* ?username= 指定的名字不给改 */
+    inviteUrl: function () { return net.inviteUrl(); },
     onStart: function () { if (net) net.start({ levelId: firstLevelId() }); },
     onLeave: leaveRoom,
     onName: function (v) {
       rememberName(v);
       if (net) {
-        net.mod.writeNameToUrl(v);    /* 写回地址栏，刷新之后名字还在 */
+        net.writeNameToUrl(v);        /* 写回地址栏，刷新之后名字还在 */
         net.setName(v);
       }
     },

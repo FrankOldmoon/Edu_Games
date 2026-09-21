@@ -144,6 +144,10 @@ export async function openRoom(opts) {
     progress: function (payload) { room.send("progress", payload || {}); },
     setName: function (name) { room.send("name", { name: name }); },
     onResync: function (fn) { room.onMessage("resync", fn); },
+    /* 地址栏和邀请链接这两件事也归 handle —— 它自己知道房号，
+       调用方不用再去记模块（换游戏时最容易漏的就是这里）。 */
+    writeNameToUrl: writeNameToUrl,
+    inviteUrl: function () { return inviteUrl(opts.code); },
     leave: function () { try { room.leave(); } catch (e) { /* 已经断了 */ } },
   };
 }

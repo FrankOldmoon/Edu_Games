@@ -14,6 +14,7 @@ export default {
     invited: "链接已复制",
     leave: "离开房间",
     yourName: "你的名字",
+    nameFromLink: "名字是你打开的链接里带的，这里改不了",
     start: "开始",
     finishLine: "终点",
     you: "（你）",

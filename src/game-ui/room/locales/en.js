@@ -17,6 +17,7 @@ export default {
     invited: "Link copied",
     leave: "Leave",
     yourName: "Your name",
+    nameFromLink: "This name came from the link you opened — it cannot be changed here",
     start: "Start",
     finishLine: "finish",
     you: "(you)",

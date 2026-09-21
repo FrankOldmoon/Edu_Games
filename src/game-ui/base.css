@@ -284,6 +284,8 @@ body.is-room .arena { grid-template-columns: minmax(0, 1fr) 240px; }
   padding: 7px 10px; min-width: 130px;
 }
 .lobby input { min-width: 150px; }
+/* 名字是链接里带的（?username=）就不能改：压暗，看着就不是能打字的地方 */
+.lobby input.is-fixed { color: var(--dim); background: var(--panel); cursor: default; }
 .roster { display: flex; flex-wrap: wrap; gap: 8px; }
 .rc {
   padding: 4px 10px; border-radius: 999px; font-size: 12.5px; color: var(--dim);
