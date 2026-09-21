@@ -3,9 +3,9 @@
 A small collection of offline-friendly HTML5 games for learning to program, the card wall
 that serves them, and a tool for mirroring third-party HTML5 games for offline use.
 
-Seven games are written here, all bilingual (English + Simplified Chinese), bundled by Vite,
+Six games are written here, all bilingual (English + Simplified Chinese), bundled by Vite,
 and pulling their libraries from npm. They are spread deliberately across the cognitive
-ladder: recalling terms, spotting a difference, ordering a program, predicting a slice,
+ladder: recalling terms, spotting a difference, ordering a program,
 typing it out character by character, and finally steering an agent with a program you
 assembled yourself.
 
@@ -14,10 +14,9 @@ assembled yourself.
 | Game | What it teaches | Source |
 | --- | --- | --- |
 | **Term Memory** | Match a Python name with what it means — types, operators, built-ins, containers, branches, string methods, common errors, functions; solo, or in a shared room | [`games/memory`](games/memory) |
-| **Python Syntax Spot** | Find the spots where two Python snippets differ — variables, `print` / `input`, operators, data types, `if` / `elif` / `else`, indentation | [`games/spot-the-difference`](games/spot-the-difference) |
+| **Python Syntax Spot** | Find the spots where two Python snippets differ — variables, `print` / `input`, operators, data types, `if` / `elif` / `else`, indentation; solo, or in a shared room | [`games/spot-the-difference`](games/spot-the-difference) |
 | **Program Assembly** | Put shuffled lines back in the order that makes the program print the target output — from three lines to a bubble sort | [`games/order`](games/order) |
-| **Slice Shot** | Predict what `start:stop:step` really selects, including negative indices and steps | [`games/slice`](games/slice) |
-| **Robot Orders** | Sequence, turning and counted repetition: drive a robot with five instructions inside a step budget | [`games/robot`](games/robot) |
+| **Robot Orders** | Sequence, turning and counted repetition: drive a robot with five instructions inside a step budget; solo, or in a shared room | [`games/robot`](games/robot) |
 | **Operator Sorter** | Route parcels into the bin that names their Python operator (`*` → TIMES, `//` → FLOOR, …) | [`games/operator-sorter`](games/operator-sorter) |
 | **Python Code Typing** | Type real Python lines character by character — quotes, brackets, colons and indentation included; solo, or in a shared room where everyone plays their own run and sees the others' progress | [`games/typing`](games/typing) |
 
@@ -51,7 +50,6 @@ npm run preview    # serve the built dist/
 ├── games/
 │   ├── memory/              our games — one HTML entry each, Vite-bundled
 │   ├── order/               (register them in vite.config.js and src/main.js)
-│   ├── slice/
 │   ├── robot/
 │   ├── typing/
 │   ├── spot-the-difference/ (two pages: index.html + play/index.html)
@@ -249,8 +247,8 @@ that cannot reach a server drops back to solo with a message.
 
 ## Sharing a room
 
-Typing and Term Memory are built on **one** room layer, so adding it to a third game means
-writing only the game-specific half.
+Four games — typing, memory, robot and spot-the-difference — are built on **one** room layer,
+so adding it to a fifth means writing only the game-specific half.
 
 Server ([`server/`](server)) — one process, one port, a room type per game:
 
@@ -259,9 +257,14 @@ Server ([`server/`](server)) — one process, one port, a room type per game:
 - [`server/schemas/progress.js`](server/schemas/progress.js): the generic `Player` (`name`,
   `playing`, `level`, `pos`, `connected`) and `ProgressState` (`levelIds`, `players`). Any
   "one number per level" game fits. Typing extends it with its target texts
-  ([`schemas/typing.js`](server/schemas/typing.js)); memory needs nothing more.
-- [`server/rooms/`](server/rooms): one `Room` per game, defined side by side in
-  [`server/index.js`](server/index.js). Each one decides its own `onProgress`.
+  ([`schemas/typing.js`](server/schemas/typing.js)); the other three need nothing more.
+- [`server/rooms/ProgressRoom.js`](server/rooms/ProgressRoom.js): `makeProgressRoom({ game, bank,
+  keep, goal })` — one factory for every game the server **cannot** check. It keeps each
+  player's `level` + `pos` in range (one level at a time, never past that level's goal) and
+  lets the client drive the level. Memory, robot and spot are three instances of it.
+- [`server/rooms/TypingRoom.js`](server/rooms/TypingRoom.js): the one room that **can** check,
+  so it is written by hand — it holds the target texts and advances the level itself. All four
+  are defined side by side in [`server/index.js`](server/index.js).
 
 Client ([`src/game-ui/room/`](src/game-ui/room)) — the whole room UI, shared:
 
@@ -276,26 +279,30 @@ denominator, the line next to Start, and what "progress" means:
 panel = createRoomPanel({ bar, lobby, tower, t, denomFor, startLabel,
                           onStart, onLeave, onName, inviteUrl, nameDefault });
 net.progress({ pos: board.pos, chunk: chunk });   // typing: checked against the server's text
-net.progress({ level: i, pos: matched });         // memory: range-checked only
+net.progress({ level: i, pos: matched });         // the other three: range-checked only
 ```
 
 Two decisions worth knowing:
 
 - **The room id is `<game>-<code>`, not the bare code.** The matchmaker keeps its rooms in one
-  global table keyed by `roomId` with no duplicate check, so a typing room and a memory room
-  both called `py1` would overwrite each other. What the students see, type and share is still
-  `py1`; only the server's internal id carries the prefix. Same rule on both sides —
-  `roomIdFor` in [`roomkit.js`](server/roomkit.js) and in
-  [`net.js`](src/game-ui/room/net.js).
+  global table keyed by `roomId` with no duplicate check, so two games' rooms both called `py1`
+  would overwrite each other. What the students see, type and share is still `py1`; only the
+  server's internal id carries the prefix. Same rule on both sides — `roomIdFor` in
+  [`roomkit.js`](server/roomkit.js) and in [`net.js`](src/game-ui/room/net.js).
 - **Only typing validates.** It holds the target text, so it can check the characters a client
-  claims to have typed — and it is the *server* that advances the level. For memory the board
-  exists only in the browser (and every player shuffles differently), so the server cannot
-  check anything: the client reports `level` plus matched pairs and the server keeps that in
-  range (one level at a time, never past that level's pair count). Because each report carries
-  the whole truth, a dropped message heals itself on the next one — memory needs no resync.
+  claims to have typed — and it is the *server* that advances the level. For the other three
+  the answer only exists in the browser (memory shuffles differently for every player, robot's
+  map and spot's differences are judged against what is rendered there), so the server cannot
+  check anything: the client reports `level` plus how far it has got, and the server keeps that
+  in range. Because each report carries the whole truth, a dropped message heals itself on the
+  next one — those three need no resync.
 
 Both are honest about the trade: a classroom wants "same room, see who is on which level",
 not anti-cheat.
+
+**One more thing clearing a level in a room does:** it marks that level in the game's own
+progress store, so the level list *outside* the room unlocks too. Without it you could reach
+level 5 in a room and still find the list locked.
 
 ## Mirroring third-party games
 

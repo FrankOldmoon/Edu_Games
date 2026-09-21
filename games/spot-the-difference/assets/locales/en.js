@@ -19,6 +19,17 @@ export default {
     resetConfirm: "Reset all progress for this level source?",
     loadFailed: "Could not load the levels\n{msg}",
 
+    /* ---- 房间（多人）----
+       房间条 / 大堂 / 头像塔里那些共用文案（房间号、邀请、离开、名字、开始、
+       同关提示、终点）在 src/game-ui/room/locales/ 里，由 i18n.js 并进来。 */
+    playWithOthers: "Play with others",
+    roomTitle: "Spot-the-difference room",
+    playerNo: "Player {n}",
+
+    connecting: "Connecting to the room…",
+    connectFailed: "Could not reach the room server\n{msg}\nRun one with: cd server && npm start — or pass ?ws=ws://host:2568",
+    roomClosed: "The room server closed this room.",
+
     lead: "There are <b>{n}</b> levels, covering variables, input/output, operators and data types through to <code>if</code> / <code>elif</code> / <code>else</code> branches. Clear a level to unlock the next one.",
     leadCustom: " Add <code>?json=&lt;url&gt;</code> to the address to load a level bank of your own.",
 

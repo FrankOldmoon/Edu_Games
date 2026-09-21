@@ -35,7 +35,6 @@ export default defineConfig({
         index: resolve("index.html"),
         "memory": resolve("games/memory/index.html"),
         "order": resolve("games/order/index.html"),
-        "slice": resolve("games/slice/index.html"),
         "robot": resolve("games/robot/index.html"),
         "typing": resolve("games/typing/index.html"),
         "operator-sorter": resolve("games/operator-sorter/html/index.html"),

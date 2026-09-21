@@ -14,7 +14,18 @@ export default {
     reset: "重置进度",
     resetConfirm: "重置这一个数据源下的全部进度？",
     loadFailed: "关卡数据加载失败\n{msg}",
-    lead: "共 <b>{n}</b> 关，从变量、输入输出、运算符、数据类型，到 <code>if</code> / <code>elif</code> / <code>else</code> 分支。完成一关才会解锁下一关。",
+
+    /* ---- 房间（多人）----
+       房间条 / 大堂 / 头像塔里那些共用文案在 src/game-ui/room/locales/ 里，由 i18n.js 并进来。 */
+    playWithOthers: "和别人一起打",
+    roomTitle: "找不同房间",
+    playerNo: "玩家 {n}",
+
+    connecting: "正在进入房间……",
+    connectFailed: "连不上房间服务器\n{msg}\n可以先用 cd server && npm start 起一个，或者用 ?ws=ws://主机:2568 指定地址",
+    roomClosed: "房间服务器关掉了这个房间。",
+
+    lead: "共 <b>{n}</b> 关，从变量、输入输出、运算符、数据类型，一直到 <code>if</code> / <code>elif</code> / <code>else</code> 分支。完成一关才会解锁下一关。",
     leadCustom: " 在地址后面加 <code>?json=&lt;地址&gt;</code> 可以换成你自己的题库。",
     backToList: "← 关卡列表",
     hint: "提示",

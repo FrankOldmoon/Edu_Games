@@ -30,6 +30,12 @@ const TIME_BASE = 0;        /* 每关基础秒数 */
 const TIME_PER_DIFF = 10;   /* 每个不同点追加的秒数 */
 const PENALTY = 5;          /* 选错扣掉几秒 */
 
+const MODE = { SOLO: "solo", ROOM: "room" };
+const NAME_KEY = "spot.name";
+/* 服务器上这个游戏的房间类型名（见 server/index.js 的 SPOT）。
+   房间号在服务器内部是 `<这个>-<房号>`，见 src/game-ui/room/net.js 的 roomIdFor。 */
+const ROOM_NAME = "spot";
+
 let levels = [];
 let rawLevels = null;      // 原始数据，换语言时重新补一遍文案
 let level = null;
@@ -40,6 +46,20 @@ let boxes = [];
 let solved = false;
 let timedOut = false;
 let startedAt = 0;
+
+/* 每关的计时参数（levels.json 里的 timer，boot 里读一次） */
+let timeBase = TIME_BASE;
+let timePerDiff = TIME_PER_DIFF;
+
+/* 房间里"开始"之前先把第 1 关摆出来给你看，但还不能点、也不计时 */
+let previewing = false;
+
+/* 房间：net 是连接（src/game-ui/room/net.js），panel 是大堂 + 头像塔（room/panel.js）。
+   这一页是"一页一关"的老结构（单人换关是换页），房间模式下改成原地重画 ——
+   换页就等于重新进房，房间连接和塔上的位置都会断。 */
+let mode = MODE.SOLO;
+let net = null;
+let panel = null;
 
 let penaltyMs = PENALTY * 1000;
 let solvedLeftMs = 0;
@@ -319,17 +339,24 @@ function reportProgress() {
   }
 }
 
-/* 「下一关 / 回到列表」：通关弹框和顶栏各有一颗，文案和动作由这里统一同步 */
+/* 「下一关 / 回到列表」：通关弹框和顶栏各有一颗，文案和动作由这里统一同步。
+   单人还是换页（老结构，?level= 也留在地址里）；房间里原地重画，不换页。 */
 function nextButton() {
   if (levelIndex + 1 < levels.length) {
     return {
       label: t("ui.next"),
-      go: function () { location.href = urlWith({ level: levelIndex + 2 }); },
+      go: function () {
+        if (mode === MODE.ROOM) { setupLevel(levelIndex + 1); return; }
+        location.href = urlWith({ level: levelIndex + 2 });
+      },
     };
   }
   return {
     label: t("ui.allDone"),
-    go: function () { location.href = "../"; },
+    go: function () {
+      if (mode === MODE.ROOM) { leaveRoom(); return; }
+      location.href = "../";
+    },
   };
 }
 
@@ -350,6 +377,7 @@ function complete() {
   solvedLeftMs = left;
   markDone(source, level.id);
   reportProgress();
+  reportRoomProgress();
   $("btnHint").disabled = true;
   addExtra(t("ui.solvedLeft", { n: Math.ceil(left / 1000) }), "good");
 
@@ -375,7 +403,7 @@ function timeUp() {
 
 /* ------------------------------- 交互 -------------------------------- */
 function onClick(ev) {
-  if (solved || timedOut || !level) return;
+  if (solved || timedOut || previewing || !level) return;
   if (ev.target.closest && ev.target.closest(".gutter")) return;
 
   const wrap = rightPanel.querySelector(".board-body");
@@ -408,6 +436,7 @@ function onClick(ev) {
   drawRing(boxes[hitIdx]);
   addNote(level.diffs[hitIdx].note, found.length);
   updateCounter(true);
+  reportRoomProgress();      /* 找到一个就报一次 —— 同房间的人看着你往上爬 */
   if (found.length === level.diffs.length) complete();
 }
 
@@ -431,6 +460,11 @@ function paintHeader() {
 /* 换语言：拿原始数据重算文案就地重画。不重新加载数据，也不丢已经找到的不同点
    —— 代码本身与语言无关，所以圆圈的测量结果依然有效。 */
 function relocalize() {
+  /* 房间里的房间号 / 邀请 / 离开 / 名字 / 开始 / 同关提示是共用文案，先刷一遍 */
+  if (mode === MODE.ROOM && net && net.room.state && panel) {
+    panel.relocalize();
+    panel.render(net.room.state, net.sessionId);
+  }
   if (!rawLevels || !level) return;
   levels = localizeLevels(rawLevels);
   level = levels[levelIndex];
@@ -451,6 +485,215 @@ function relocalize() {
   if (hintShown) addExtra(hintText());
   if (solved) addExtra(t("ui.solvedLeft", { n: Math.ceil(solvedLeftMs / 1000) }), "good");
   else if (timedOut) addExtra(t("ui.timeUp", { n: Math.round(penaltyMs / 1000) }), "bad");
+}
+
+/* ------------------------------- 一关的摆设 ------------------------------- */
+
+/* 这一关的时间预算：关卡自己带 seconds 就用它，否则按不同点数量算 */
+function levelMs() {
+  return Number.isFinite(level.seconds)
+    ? level.seconds * 1000
+    : (timeBase + timePerDiff * level.diffs.length) * 1000;
+}
+
+/* 摆好第 idx 关：画两块代码、量好位置、开表。
+   房间里「下一关」就是再调一次它 —— 原地重画，不换页，所以房间连接、
+   塔上的位置都不会断（这一页本来是"一页一关"，换关靠换页）。
+   preview=true 只画不跑（大堂里先看一眼第 1 关），也不收点击。 */
+function setupLevel(idx, preview) {
+  previewing = !!preview;
+
+  if (celebrateTimer) { clearTimeout(celebrateTimer); celebrateTimer = null; }
+  if (fx) { fx.stop(); fx = null; }
+  hideCelebrate();
+
+  levelIndex = idx;
+  level = levels[idx];
+  found = [];
+  solved = false;
+  timedOut = false;
+  hintShown = false;
+
+  const boards = document.querySelector(".boards");
+  if (boards) boards.classList.remove("failed");
+
+  paintHeader();
+  $("btnNext").hidden = true;
+  $("btnRetry").hidden = true;
+  $("btnHint").disabled = previewing;
+  $("notes").innerHTML = "";
+  $("extras").innerHTML = "";
+  updateCounter();
+
+  renderCode(leftPanel, level.left);
+  renderCode(rightPanel, level.right);
+  measure();
+  redraw();                 /* 清掉上一关留下的圈 */
+
+  reportRoomProgress();     /* 房间里：告诉大家我在第几关、找出了几处 */
+
+  if (previewing) {
+    clock.stop();
+    clock.paint(levelMs()); /* 只把预算摆在表上，不开始走 */
+    return;
+  }
+  startTimer(levelMs());
+}
+
+/* ------------------------------ 房间（多人） ------------------------------ */
+
+/* 房间那一层（连接、大堂、头像塔）在 src/game-ui/room/ 里，几个游戏共用一份。
+   这里只写找不同特有的东西：进度怎么算、什么时候报。
+
+   和配对、机器人一样，服务器**验不了**：不同点在哪只有客户端知道（而且判定是按
+   浏览器里量出来的坐标），所以服务器只做范围检查（一关一关往前、不超过本关的不同点数），
+   关卡由客户端推。每一条上报都带着完整的真相，丢一条下一条自己就修正回来了。 */
+
+/* 名字：?username=Ada 最优先 —— 老师可以把名字写进链接发给每个人。 */
+function cleanNameInput(v) {
+  return String(v === undefined || v === null ? "" : v)
+    .replace(/[\u0000-\u001f\u007f]/g, "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 16);
+}
+
+function usernameFromUrlSafe() {
+  try {
+    return cleanNameInput(new URLSearchParams(location.search).get("username"));
+  } catch (e) {
+    return "";
+  }
+}
+
+function rememberName(name) {
+  try { localStorage.setItem(NAME_KEY, name); } catch (e) { /* 无痕模式 */ }
+}
+
+function playerName() {
+  const fromUrl = usernameFromUrlSafe();
+  if (fromUrl) {
+    rememberName(fromUrl);
+    return fromUrl;
+  }
+  let saved = "";
+  try { saved = localStorage.getItem(NAME_KEY) || ""; } catch (e) { /* ignore */ }
+  if (saved) return saved;
+  const auto = t("ui.playerNo", { n: 1 + Math.floor(Math.random() * 99) });
+  rememberName(auto);
+  return auto;
+}
+
+/* 这一关一共几处不同（塔上的分母）：从本地关卡库取，和服务器数的是同一份数据 */
+function diffsAt(i) {
+  const lv = levels[i];
+  return lv && Array.isArray(lv.diffs) ? lv.diffs.length : 0;
+}
+
+/* 上报"我在第几关、找出了几处"。每一条都是完整的真相。 */
+function reportRoomProgress() {
+  if (mode !== MODE.ROOM || !net || !level) return;
+  net.progress({ level: levelIndex, pos: found.length });
+}
+
+async function enterRoom() {
+  mode = MODE.ROOM;
+  document.body.classList.add("is-room");
+
+  /* 房间那一层是动态 import 的：不进房间就永远不会加载 colyseus.js */
+  let netMod = null;
+  let panelMod = null;
+  try {
+    netMod = await import("../../../src/game-ui/room/net.js");
+    panelMod = await import("../../../src/game-ui/room/panel.js");
+  } catch (e) {
+    fail(t("ui.connectFailed", { msg: "room " + (e.message || e) }));
+    return;
+  }
+  const realCode = netMod.codeFromUrl() || netMod.randomCode();
+
+  $("lead").textContent = t("ui.connecting");
+
+  try {
+    net = await netMod.openRoom({
+      roomName: ROOM_NAME,
+      url: netMod.serverUrl(),
+      code: realCode,
+      name: playerName(),
+    });
+  } catch (e) {
+    net = null;
+    fail(t("ui.connectFailed", { msg: e.message || String(e) }));
+    mode = MODE.SOLO;
+    document.body.classList.remove("is-room");
+    return;
+  }
+
+  netMod.writeRoomToUrl(net.code);
+
+  panel = panelMod.createRoomPanel({
+    bar: $("roomBar"),
+    lobby: $("lobby"),
+    tower: $("tower"),
+    t: t,
+    denomFor: diffsAt,
+    /* 开始按钮旁边那句：一按就从第 1 关起 */
+    startLabel: function () {
+      return t("ui.levelNo", { n: 1 }) + " · " + levels[0].name;
+    },
+    nameDefault: playerName,
+    inviteUrl: function () { return net.mod.inviteUrl(net.code); },
+    /* 点开始：只开我自己这一局 —— 本地摆出第 1 关，同时告诉服务器我开始了 */
+    onStart: function () {
+      if (!net) return;
+      net.start({});
+      setupLevel(0);
+    },
+    onLeave: leaveRoom,
+    onName: function (v) {
+      rememberName(v);
+      if (net) {
+        net.mod.writeNameToUrl(v);    /* 写回地址栏，刷新之后名字还在 */
+        net.setName(v);
+      }
+    },
+  });
+  panel.setCode(net.code);
+
+  $("roomBar").hidden = false;
+  $("lobby").hidden = false;     /* 还没点"开始"：改名字、看谁进来了 */
+  $("tower").hidden = false;
+  setupLevel(0, true);           /* 先把第 1 关摊开给你看一眼，但还不能点 */
+
+  net.room.onStateChange(onRoomState);
+  net.room.onLeave(function () {
+    if (mode === MODE.ROOM) fail(t("ui.roomClosed"));
+  });
+
+  onRoomState();
+}
+
+/* 离开房间：这一页没有关卡列表可回（列表在另一个页面上），所以直接跳回列表页 */
+function leaveRoom() {
+  if (net) {
+    try { net.leave(); } catch (e) { /* 已经断了 */ }
+  }
+  net = null;
+  if (panel) {
+    panel.clear();
+    panel = null;
+  }
+  mode = MODE.SOLO;
+  location.href = "../";
+}
+
+/* 谁在、谁在第几关、塔上画谁 —— 全交给 panel。
+   关卡本来就是本地推进的（两份代码在我这儿，找到了就是找到了），服务器只记着给别人看。 */
+function onRoomState() {
+  if (!net || !net.room.state) return;
+  const st = net.room.state;
+  if (!st.players) return;
+  if (panel) panel.render(st, net.sessionId);
 }
 
 /* ------------------------------- 启动 -------------------------------- */
@@ -485,10 +728,33 @@ async function boot() {
   source = data.source;
 
   const cfg = data.timer || {};
-  const base = Number.isFinite(cfg.base) ? cfg.base : TIME_BASE;
-  const perDiff = Number.isFinite(cfg.perDiff) ? cfg.perDiff : TIME_PER_DIFF;
+  timeBase = Number.isFinite(cfg.base) ? cfg.base : TIME_BASE;
+  timePerDiff = Number.isFinite(cfg.perDiff) ? cfg.perDiff : TIME_PER_DIFF;
   const pen = Number.isFinite(cfg.penalty) ? cfg.penalty : PENALTY;
   penaltyMs = pen * 1000;
+
+  /* 两块代码面板和它们的事件只接一次，换关只是重画它们 */
+  leftPanel = document.querySelector('.board[data-panel="left"]');
+  rightPanel = document.querySelector('.board[data-panel="right"]');
+  rightPanel.querySelector(".board-body").addEventListener("click", onClick);
+  window.addEventListener("resize", function () {
+    measure();
+    redraw();
+  });
+  $("btnHint").onclick = showHint;
+  $("btnRetry").onclick = function () {
+    if (celebrateTimer) { clearTimeout(celebrateTimer); celebrateTimer = null; }
+    if (fx) { fx.stop(); fx = null; }
+    /* 房间里不换页：换个页就等于重新进房，塔上的进度会断 */
+    if (mode === MODE.ROOM) { setupLevel(levelIndex); return; }
+    location.reload();
+  };
+
+  /* ?room= 出现就进房间：先连上，等点"开始"再摆第 1 关 */
+  if (param("room") !== null) {
+    await enterRoom();
+    return;
+  }
 
   const done = readProgress(source).done;
   const open = allUnlocked() ? levels.length : unlockedCount(levels, done);
@@ -510,42 +776,7 @@ async function boot() {
     return;
   }
 
-  level = levels[idx];
-  levelIndex = idx;
-  found = [];
-  solved = false;
-  timedOut = false;
-
-  paintHeader();
-  $("btnNext").hidden = true;
-  $("btnRetry").hidden = true;
-  $("btnHint").disabled = false;
-  $("btnHint").onclick = showHint;
-  $("btnRetry").onclick = function () {
-    if (celebrateTimer) clearTimeout(celebrateTimer);
-    if (fx) fx.stop();
-    location.reload();
-  };
-  $("notes").innerHTML = "";
-  $("extras").innerHTML = "";
-  updateCounter();
-
-  leftPanel = document.querySelector('.board[data-panel="left"]');
-  rightPanel = document.querySelector('.board[data-panel="right"]');
-  renderCode(leftPanel, level.left);
-  renderCode(rightPanel, level.right);
-
-  measure();
-  rightPanel.querySelector(".board-body").addEventListener("click", onClick);
-  window.addEventListener("resize", function () {
-    measure();
-    redraw();
-  });
-
-  /* 时间预算：关卡自己带 seconds 就用它，否则按不同点数量算 */
-  startTimer(Number.isFinite(level.seconds)
-    ? level.seconds * 1000
-    : (base + perDiff * level.diffs.length) * 1000);
+  setupLevel(idx);
 }
 
 boot();

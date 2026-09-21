@@ -273,6 +273,7 @@ function finishRun() {
   run.done = true;
   run.advancing = false;
   clearAdvanceWatchdog();
+  markRoomLevelDone(run.myLevel);    /* 最后一关也走服务器那一下的同一个出口 */
   if (watch) watch.stop();
   el("hint").innerHTML = t("ui.youFinished");
   syncBoard();
@@ -632,6 +633,15 @@ function firstLevelId() {
   return st && st.levelIds && st.levelIds[0] ? st.levelIds[0] : "";
 }
 
+/* 房间里过一关，外头那份关卡列表也得跟着解锁 —— 不然会出现"我在房间里打到第 5 关了，
+   回到列表还锁着"。房间进度和解锁共用同一份 localStorage（src/game-ui/progress.js）。
+   由**服务器推进的那一下**触发，所以"服务器认了才算"，被回推的位置不会误标记。 */
+function markRoomLevelDone(index) {
+  const lv = levels[index];
+  if (!lv || !prog) return;
+  if (prog.mark(lv.id)) renderList();     /* 第一次通关才重画列表 */
+}
+
 /* 大堂里先把第一关摊开给你看：代码看得见、但还不能敲 */
 function renderPreview() {
   resetTyping();
@@ -723,6 +733,7 @@ function onRoomState() {
 
   if (playing && me.level !== run.myLevel) {
     run.charsDone += board.chars.length;   /* 刚打完那一关的长度 */
+    markRoomLevelDone(run.myLevel);        /* 刚打完那一关：外头列表也要解锁 */
     run.myLevel = me.level;
     run.advancing = false;                 /* 下一关到手了，可以接着敲 */
     clearAdvanceWatchdog();

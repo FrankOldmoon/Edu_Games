@@ -12,7 +12,6 @@ import sorterThumb from "../games/operator-sorter/capture.png";
 import spotThumb from "../games/spot-the-difference/capture.png";
 import memoryThumb from "../games/memory/capture.png";
 import orderThumb from "../games/order/capture.png";
-import sliceThumb from "../games/slice/capture.png";
 import robotThumb from "../games/robot/capture.png";
 import typingThumb from "../games/typing/capture.png";
 
@@ -92,13 +91,6 @@ const GAMES = [
     desc: "Put shuffled lines back in the order that makes the program print the target output — 8 levels",
     url: "./games/order/",
     thumb: orderThumb,
-    tag: "HTML5",
-  },
-  {
-    name: "Slice Shot",
-    desc: "Set start / stop / step and hit the target slice — 10 levels, ending on negative steps",
-    url: "./games/slice/",
-    thumb: sliceThumb,
     tag: "HTML5",
   },
   {

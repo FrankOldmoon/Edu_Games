@@ -25,6 +25,9 @@
 .boards { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
 @media (max-width: 820px) { .boards { grid-template-columns: 1fr; } }
 
+/* 房间那一层：.arena 是"两块代码 + 同关头像塔"两列，.mainpane 只是左边那一格 */
+.mainpane { min-width: 0; }
+
 .board { border: 1px solid var(--line); border-radius: 12px; overflow: hidden; background: var(--panel); }
 .board > header {
   display: flex; align-items: center; gap: 9px;

@@ -22,6 +22,7 @@
   <span class="counter game-only" id="steps"></span>
   <span class="readout dim game-only" id="status"></span>
   <button class="btn list-only" id="btnReset" type="button" data-i18n="ui.reset">Reset progress</button>
+  <button class="btn list-only" id="btnPlayWithOthers" type="button" data-i18n="ui.playWithOthers">Play with others</button>
   <button class="btn primary game-only" id="btnRun" type="button" data-i18n="ui.run">Run</button>
   <button class="btn game-only" id="btnStep" type="button" data-i18n="ui.stepOne">Step</button>
   <button class="btn game-only" id="btnRewind" type="button" data-i18n="ui.rewind">Reset robot</button>
@@ -35,37 +36,52 @@
   </section>
 
   <section id="viewGame" class="game-only">
+    <!-- 房间：房间号 + 人数 + 邀请/离开。里面由 src/game-ui/room/panel.js 填，单人时整条不显示 -->
+    <div class="roombar" id="roomBar" hidden></div>
+
     <p class="lead" id="tip"></p>
 
     <div class="timebar" id="timebar" data-i18n-title="ui.timeLeft" title="Time left"></div>
-    <div class="wrap">
-      <div class="pane boardpane">
-        <header class="pane-head" data-i18n="ui.warehouse">Warehouse</header>
-        <div class="boardwrap"><div class="board" id="board"></div></div>
-        <div class="legend">
-          <span><i class="sw robot"></i><span data-i18n="ui.lgRobot">robot</span></span>
-          <span><i class="sw parcel"></i><span data-i18n="ui.lgParcel">parcel</span></span>
-          <span><i class="sw goal"></i><span data-i18n="ui.lgGoal">drop zone</span></span>
-          <span><i class="sw wall"></i><span data-i18n="ui.lgWall">wall</span></span>
+
+    <div class="arena">
+      <div class="mainpane">
+        <!-- 房间：还没开始时的面板（改名 + 开始 + 名单）。里面由 room/panel.js 填，
+             点开始之后整块收起来 -->
+        <div class="lobby" id="lobby" hidden></div>
+
+        <div class="wrap">
+          <div class="pane boardpane">
+            <header class="pane-head" data-i18n="ui.warehouse">Warehouse</header>
+            <div class="boardwrap"><div class="board" id="board"></div></div>
+            <div class="legend">
+              <span><i class="sw robot"></i><span data-i18n="ui.lgRobot">robot</span></span>
+              <span><i class="sw parcel"></i><span data-i18n="ui.lgParcel">parcel</span></span>
+              <span><i class="sw goal"></i><span data-i18n="ui.lgGoal">drop zone</span></span>
+              <span><i class="sw wall"></i><span data-i18n="ui.lgWall">wall</span></span>
+            </div>
+          </div>
+
+          <aside class="pane programpane">
+            <header class="pane-head" data-i18n="ui.program">Program</header>
+            <div class="palette" id="palette">
+              <button class="pbtn" type="button" data-op="F"><b>▲</b><span data-i18n="ui.opF">Forward</span></button>
+              <button class="pbtn" type="button" data-op="L"><b>↰</b><span data-i18n="ui.opL">Turn left</span></button>
+              <button class="pbtn" type="button" data-op="R"><b>↱</b><span data-i18n="ui.opR">Turn right</span></button>
+              <button class="pbtn" type="button" data-op="P"><b>✋</b><span data-i18n="ui.opP">Pick up</span></button>
+              <button class="pbtn" type="button" data-op="D"><b>⬇</b><span data-i18n="ui.opD">Put down</span></button>
+            </div>
+            <ol class="prog" id="prog"></ol>
+            <div class="progbar">
+              <span class="readout dim" id="budget"></span>
+              <span class="spacer"></span>
+              <button class="btn ghost" id="btnClear" type="button" data-i18n="ui.clear">Clear program</button>
+            </div>
+          </aside>
         </div>
       </div>
 
-      <aside class="pane programpane">
-        <header class="pane-head" data-i18n="ui.program">Program</header>
-        <div class="palette" id="palette">
-          <button class="pbtn" type="button" data-op="F"><b>▲</b><span data-i18n="ui.opF">Forward</span></button>
-          <button class="pbtn" type="button" data-op="L"><b>↰</b><span data-i18n="ui.opL">Turn left</span></button>
-          <button class="pbtn" type="button" data-op="R"><b>↱</b><span data-i18n="ui.opR">Turn right</span></button>
-          <button class="pbtn" type="button" data-op="P"><b>✋</b><span data-i18n="ui.opP">Pick up</span></button>
-          <button class="pbtn" type="button" data-op="D"><b>⬇</b><span data-i18n="ui.opD">Put down</span></button>
-        </div>
-        <ol class="prog" id="prog"></ol>
-        <div class="progbar">
-          <span class="readout dim" id="budget"></span>
-          <span class="spacer"></span>
-          <button class="btn ghost" id="btnClear" type="button" data-i18n="ui.clear">Clear program</button>
-        </div>
-      </aside>
+      <!-- 房间：同关头像塔。里面由 room/panel.js 填 -->
+      <aside class="tower" id="tower" hidden></aside>
     </div>
   </section>
 </main>

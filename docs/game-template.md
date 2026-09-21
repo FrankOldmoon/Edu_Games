@@ -3,7 +3,7 @@
 这个仓库真正的资产不是某几个游戏，而是「知识 → 关卡库 → 能直接嵌进课堂」的这套载体。
 按下面的契约写，新游戏自动继承：双语、关卡库外链、顺序解锁、embed 回传、离线可用。
 
-参考实现：`games/memory/`（最短，先看它）、`games/order/`、`games/slice/`、`games/robot/`。
+参考实现：`games/memory/`（最短，先看它）、`games/order/`、`games/robot/`。
 
 ## 目录
 
@@ -217,37 +217,51 @@ reportResult("<id>", {
 
 ## 9. 房间（多人，可选）
 
-不是每个游戏都要，但要就只有**一套**：`games/typing` 和 `games/memory` 共用同一层，
-第三个游戏接进来只需要写清楚"这个游戏的进度是什么"。
+不是每个游戏都要，但要就只有**一套**：`typing`、`memory`、`robot`、`spot-the-difference`
+共用同一层，第五个游戏接进来只需要写清楚"这个游戏的进度是什么"。
 
-语义是固定的**各自一局**：点开始只开自己那一局、从第 1 关起步、打完一关自己进下一关；
+语义是固定的**各自一局**：点开始只开自己那一局、从第 1 关起步、过关自己进下一关；
 房间只同步"谁在、他在第几关、这一关打了多少"。塔上**只画和你同一关的人** ——
 别人打的是另一段内容，比位置没有意义。所以没有开赛时间、没有名次、没有"等其他人"。
+
+**过一关要让外面那份关卡列表也解锁**：房间里的过关要顺手 `prog.mark(id)` / `markDone(...)`，
+否则会出现"在房间里打到第 5 关，回列表还锁着"。
 
 服务器（一个进程挂所有游戏的房间）：
 
 - `server/roomkit.js` —— 房间号注册表（键是 `<游戏>/<房号>`）、名字清洗、防刷限流。和游戏无关。
 - `server/schemas/progress.js` —— 通用的 `Player`（`name playing level pos connected`）
-  和 `ProgressState`（`levelIds players`）。"一关一个进度数"的游戏直接用；打字多要一份
-  目标文本（`schemas/typing.js`），配对什么都不用加。
-- `server/rooms/<game>Room.js` —— 一个游戏一个 Room，在 `server/index.js` 里并排
-  `define(...).filterBy(["code"])`；各自的 `onProgress` 自己写。
+  和 `ProgressState`（`levelIds players`）。"一关一个进度数"的游戏直接用。
+- `server/rooms/ProgressRoom.js` —— **服务器验不了的那些游戏**用这一个工厂：
+
+  ```js
+  makeProgressRoom({ game, bank, keep, goal })
+  //   game 房间类型名（也是 roomId 前缀）
+  //   bank 题库路径（相对 server/）
+  //   keep 这一关要不要用（默认都要）
+  //   goal 这一关的目标数 —— 塔上的分母，也是范围检查的上限
+  ```
+
+  它只管范围：关卡一关一关往前、进度不超过本关目标数；关卡由客户端推。因为**每条上报
+  都带完整真相**，被限流丢掉一条下一条自己就修正回来了 —— 不需要"回推权威位置"。
+- `server/rooms/TypingRoom.js` —— 唯一**能验**的房间：目标文本在服务器手上，逐字符比对、
+  由服务器推进关卡。这种要手写。
 
 客户端（`src/game-ui/room/`）：`net.js` 管 `?room=` / `?ws=` / `?username=` 和进房握手；
 `panel.js` 生成房间条 / 大堂 / 同关头像塔；`locales/` 是共用文案，
 由游戏的 `i18n.js` 用 `Object.assign({}, en, roomEn)` 并进 `room.*`。
-游戏的 HTML 只留三个**空宿主**（`#roomBar` `#lobby` `#tower`），样式在 `base.css` 里
-（`.roombar / .lobby / .roster / .tower`，含那条把 `[hidden]` 钉死的规则）。
+游戏的 HTML 只留三个**空宿主**（`#roomBar` `#lobby` `#tower`，布局自己决定，外面套
+`.arena > .mainpane + .tower`），样式在 `base.css` 里（`.roombar / .lobby / .roster / .tower`，
+含那条把 `[hidden]` 钉死的规则）。
 
 两条必须知道的：
 
 - **roomId 要带游戏前缀**（`<游戏>-<房号>`）：matchmaker 的房间表是按 roomId 全局唯一存的、
-  没有查重，所以打字的 py1 和配对的 py1 会互相顶掉。学生看到 / 输入 / 分享的仍然是 `py1`。
+  没有查重，所以两个游戏的 py1 会互相顶掉。学生看到 / 输入 / 分享的仍然是 `py1`。
   两边同一规则：`server/roomkit.js` 的 `roomIdFor` 与 `src/game-ui/room/net.js` 的 `roomIdFor`。
-- **能验才验**：打字的目标文本在服务器手上，所以服务器逐字符比对、并由服务器推进关卡；
-  配对的牌只存在于浏览器里（而且每人洗牌不同），服务器验不了，就只做范围检查
-  （一关一关往前、不超过这一关的对数），关卡由客户端推。**每一条上报都带完整真相**，
-  丢一条下一条自己就修正回来了 —— 所以配对那条路不需要"回推权威位置"。
+- **"一页一关"的游戏要改原地换关**：`spot-the-difference` 原来是完成一关就换页，
+  换页等于重新进房、塔上的进度会断 —— 房间模式下改成原地重画（`setupLevel(idx)`）。
+  单人仍然换页，两条路并存。
 
-细节与两边的例子见 README 的 [Sharing a room](../README.md#sharing-a-room)。
+细节与四个例子见 README 的 [Sharing a room](../README.md#sharing-a-room)。
 课堂要的是"同房间、看得见谁在第几关"，不是防作弊 —— 这一点要说清楚。

@@ -19,6 +19,13 @@ function playUrl(n) {
   return "./play/?" + q.toString();
 }
 
+function randomRoomCode() {
+  const chars = "abcdefghijkmnpqrstuvwxyz23456789";
+  let s = "";
+  for (let i = 0; i < 4; i++) s += chars[Math.floor(Math.random() * chars.length)];
+  return s;
+}
+
 function showErr(message) {
   const el = $("err");
   el.hidden = false;
@@ -60,6 +67,12 @@ async function boot() {
     if (!window.confirm(t("ui.resetConfirm"))) return;
     resetProgress(source);
     render();
+  };
+
+  /* 房间：随机房号带进游戏页 —— 复制链接就能请人进来。房间开在游戏页上，
+     因为这一页和游戏页是两个页面（房间那套 UI 在 play/index.html 里）。 */
+  $("btnPlayWithOthers").onclick = function () {
+    location.href = "./play/?room=" + randomRoomCode();
   };
 
   try {

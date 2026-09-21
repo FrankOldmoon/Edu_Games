@@ -7,6 +7,10 @@
 .wrap { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 16px; align-items: start; }
 @media (max-width: 860px) { .wrap { grid-template-columns: 1fr; } }
 
+/* 房间那一层：.arena 是"游戏区 + 同关头像塔"两列，.mainpane 只是左边那一格（名字避开
+   本文件里的 .pane —— 那个是"仓库/程序"两块面板的样式）。 */
+.mainpane { min-width: 0; }
+
 .pane { overflow: hidden; border-radius: var(--radius); background: var(--panel); border: 1px solid var(--line); }
 .pane-head { padding: 10px 14px; border-bottom: 1px solid var(--line); background: #141824; color: var(--dim); font-size: 12px; }
 .boardpane { width: fit-content; }
