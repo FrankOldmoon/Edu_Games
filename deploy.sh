@@ -108,7 +108,7 @@ else
 fi
 
 step "自检"
-for game in typing memory; do
+for game in typing memory robot spot-the-difference; do
   code=$(curl -fsS -o /dev/null -w '%{http_code}' "http://127.0.0.1:$SITE_PORT/games/$game/" || true)
   [ "$code" = "200" ] && echo "站点 /games/$game/ → 200" || echo "警告：/games/$game/ 返回 ${code:-连不上}"
 done
