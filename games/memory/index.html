@@ -21,6 +21,7 @@
   <span class="clock game-only" id="clock">0:00</span>
   <span class="counter game-only" id="moves"></span>
   <button class="btn list-only" id="btnReset" type="button" data-i18n="ui.reset">Reset progress</button>
+  <button class="btn list-only" id="btnPlayWithOthers" type="button" data-i18n="ui.playWithOthers">Play with others</button>
   <button class="btn game-only" id="btnRestart" type="button" data-i18n="ui.retry">Retry</button>
 </header>
 
@@ -32,9 +33,23 @@
   </section>
 
   <section id="viewGame" class="game-only">
+    <!-- 房间：房间号 + 人数 + 邀请/离开。里面由 src/game-ui/room/panel.js 填，单人时整条不显示 -->
+    <div class="roombar" id="roomBar" hidden></div>
+
     <p class="lead" id="hint"></p>
     <div class="timebar" id="timebar" data-i18n-title="ui.timeLeft" title="Time left"></div>
-    <div class="board" id="board"></div>
+
+    <div class="arena">
+      <div class="pane">
+        <!-- 房间：还没开始时的面板（改名 + 开始 + 名单）。里面由 room/panel.js 填，
+             点开始之后整块收起来 -->
+        <div class="lobby" id="lobby" hidden></div>
+        <div class="board" id="board"></div>
+      </div>
+
+      <!-- 房间：同关头像塔。里面由 room/panel.js 填 -->
+      <aside class="tower" id="tower" hidden></aside>
+    </div>
   </section>
 </main>
 

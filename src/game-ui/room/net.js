@@ -1,13 +1,17 @@
-/* 房间这一层。单人永远不 import 它 —— 只有 URL 上出现了 ?room= 才会动态
-   import("colyseus.js")，所以离线包和单人玩法都不受影响，连不上服务器也只是回到单人。
+/* 房间这一层：URL 参数、进房握手、发消息。和"玩的是什么游戏"无关 ——
+   游戏名（roomName）由调用方给。
 
-   进房：房间号由客户端指定 —— 先 joinById(房间号)，房间还不存在才 joinOrCreate。
-   并发里抢输的那间房号会不一样，这时退出去重进真正的房间（服务器侧见 TypingRoom）。
+   单人永远不 import 它 —— 只有 URL 上出现了 ?room= 才会动态 import("colyseus.js")，
+   所以离线包和单人玩法都不受影响，连不上服务器也只是回到单人。
+
+   进房：房号由客户端指定 —— 先 joinById(roomId)，房间还不存在才 joinOrCreate。
+   并发里抢输的那间房号会不一样，这时退出去重进真正的房间（服务器侧见 rooms/*.js）。
 
    这里没有对时：房间里没有"同时开赛"这回事，每个人自己开自己那一局，
    计时是本地正计时，不需要跟服务器换算。 */
 
-const ROOM_NAME = "typing";
+const DEFAULT_PORT = 2568;
+const CODE_CHARS = "abcdefghijkmnpqrstuvwxyz23456789";
 
 function q(name) {
   try {
@@ -16,8 +20,6 @@ function q(name) {
     return null;
   }
 }
-
-const CODE_CHARS = "abcdefghijkmnpqrstuvwxyz23456789";
 
 export function randomCode() {
   let s = "";
@@ -37,8 +39,6 @@ export function codeFromUrl() {
 
 /* ?ws=wss://example.com 覆盖；默认按当前页面所在主机 + DEFAULT_PORT 推。
    https 页面必须走 wss（否则浏览器按混合内容拦掉），所以要在前面配一层反代。 */
-const DEFAULT_PORT = 2568;
-
 export function serverUrl() {
   const given = q("ws");
   if (given) return given;
@@ -77,6 +77,16 @@ export function inviteUrl(code) {
   }
 }
 
+/* 服务器上的 roomId 是 `<游戏>-<房号>`，不是光秃秃的房号。
+   原因：matchmaker 的 roomId 是**全局**唯一的一张表（见 @colyseus/core 的
+   MatchMaker.createRoomReferences：rooms[room.roomId] = room，没有查重），
+   所以打字的 py1 和记忆的 py1 必须落到两个不同的 id 上，否则后建的会把先建的顶掉。
+   人看到的、写在黑板上的房号仍然是 py1（?room=py1），只有服务器内部用它。
+   服务器侧同一规则见 server/roomkit.js 的 roomIdFor。 */
+export function roomIdFor(roomName, code) {
+  return roomName + "-" + code;
+}
+
 const sleep = function (ms) {
   return new Promise(function (r) { setTimeout(r, ms); });
 };
@@ -91,28 +101,31 @@ async function waitForState(room, ms) {
   return false;
 }
 
+/* 进房。返回的 handle 把"怎么发消息"和"state 长什么样"留给调用方 ——
+   各游戏发的东西不一样（打字要交一段字符，配对只报一个数）。 */
 export async function openRoom(opts) {
   const mod = await import("colyseus.js");
   const client = new mod.Client(opts.url);
+  const want = roomIdFor(opts.roomName, opts.code);
   const joinOptions = { name: opts.name, code: opts.code };
 
   let room = null;
   try {
-    room = await client.joinById(opts.code, joinOptions);
+    room = await client.joinById(want, joinOptions);
   } catch (e) {
     room = null;
   }
 
   if (!room) {
-    room = await client.joinOrCreate(ROOM_NAME, joinOptions);
+    room = await client.joinOrCreate(opts.roomName, joinOptions);
 
-    /* 抢输的那间：房间号和自己要的不一样，退出去重进真正的房间（见 TypingRoom 的说明） */
-    if (room.roomId !== opts.code) {
+    /* 抢输的那间：房号和自己要的不一样，退出去重进真正的房间（见 rooms/*.js 的说明） */
+    if (room.roomId !== want) {
       const real = room.roomId;
       await room.leave();
       try {
-        room = await client.joinById(opts.code, joinOptions);
-        console.log("[typing] room code", opts.code, "was taken by", real, "— rejoined by id");
+        room = await client.joinById(want, joinOptions);
+        console.log("[room] code", opts.code, "was taken by", real, "— rejoined by id");
       } catch (e) {
         throw new Error("could not join room " + opts.code);
       }
@@ -124,12 +137,13 @@ export async function openRoom(opts) {
   return {
     room: room,
     sessionId: room.sessionId,
-    roomId: room.roomId,
+    code: opts.code,            /* 给人看的房号（?room= 里那个） */
+    roomId: room.roomId,        /* 服务器内部的 id（带游戏前缀） */
     ready: ready,
-    progress: function (pos, chunk) { room.send("progress", { pos: pos, chunk: chunk }); },
+    start: function (payload) { room.send("start", payload || {}); },
+    progress: function (payload) { room.send("progress", payload || {}); },
     setName: function (name) { room.send("name", { name: name }); },
-    /* 开始我自己这一局，从第一关起步 —— 服务器只记我这一份，不碰别人 */
-    startRun: function (levelId) { room.send("start", { levelId: levelId }); },
+    onResync: function (fn) { room.onMessage("resync", fn); },
     leave: function () { try { room.leave(); } catch (e) { /* 已经断了 */ } },
   };
 }

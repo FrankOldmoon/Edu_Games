@@ -243,6 +243,95 @@ button.lv { cursor: pointer; }
   pointer-events: none; z-index: 55;
 }
 
+/* ------------------------------ 房间（多人） ------------------------------ */
+/* "各自一局"那一套：房间条、大堂、同关头像塔。DOM 由 src/game-ui/room/panel.js
+   生成，各游戏自己的 index.html 只留三个宿主元素、自己决定摆在哪。
+
+   hidden 必须是硬性的：带房间的游戏里有太多"按阶段显示/隐藏"的块，
+   让任何 CSS 的 display 盖过 [hidden] 都会让它们全部失灵（.lobby 就是 display:flex）。 */
+[hidden] { display: none !important; }
+
+/* 游戏区：单人时一列，进了房间右边多出塔那一条 */
+.arena {
+  display: grid; grid-template-columns: minmax(0, 1fr);
+  gap: 18px; align-items: start; max-width: 1180px; margin: 0 auto;
+}
+body.is-room .arena { grid-template-columns: minmax(0, 1fr) 240px; }
+.pane { min-width: 0; }
+
+/* 房间条：房间号 + 人数 + 邀请/离开 */
+.roombar {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  margin: 0 0 16px; padding: 8px 12px;
+  border-radius: 10px; background: var(--panel); border: 1px solid var(--line);
+}
+.roomcode { font-family: var(--mono); font-size: 13px; color: var(--text); }
+.roommeta { font-size: 12.5px; color: var(--dim); }
+
+/* 大堂：挑起步、改名字、看谁进来了 */
+.lobby {
+  display: flex; flex-direction: column; gap: 10px;
+  margin: 0 0 16px; padding: 14px 16px;
+  border-radius: 12px; background: var(--panel); border: 1px solid var(--line);
+}
+.lobbyrow { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.lobby .lbl {
+  font-size: 10.5px; letter-spacing: .09em; text-transform: uppercase; color: var(--dim-2);
+}
+.lobby select, .lobby input {
+  appearance: none; font: inherit; font-size: 13px; color: var(--text);
+  background: var(--panel-2); border: 1px solid var(--line); border-radius: 9px;
+  padding: 7px 10px; min-width: 130px;
+}
+.lobby input { min-width: 150px; }
+.roster { display: flex; flex-wrap: wrap; gap: 8px; }
+.rc {
+  padding: 4px 10px; border-radius: 999px; font-size: 12.5px; color: var(--dim);
+  background: var(--panel-2); border: 1px solid var(--line);
+}
+.rc.me { border-color: var(--accent); color: var(--text); }
+
+/* 头像塔：纵向位置 = 已打完的比例。底部 46px 和顶部 30px 是给头像留的余量，
+   否则比例到 100% 时头像会被 overflow 切掉一半。
+   高度跟着视口走：太高会把整页撑得空荡荡，太矮几条泳道就叠在一起了。 */
+.tower {
+  position: relative; height: clamp(300px, 48vh, 520px); overflow: hidden;
+  border-radius: 12px; background: var(--panel); border: 1px solid var(--line);
+}
+.lanes { position: absolute; top: 0; bottom: 0; left: 0; right: 0; display: flex; }
+.lanes .lane { flex: 1; border-right: 1px dashed var(--line); }
+.lanes .lane:last-child { border-right: 0; }
+
+.chips { position: absolute; top: 30px; bottom: 46px; left: 0; right: 0; }
+.slot {
+  position: absolute; left: calc(var(--lane, 0) * 33.3333%); width: 33.3333%;
+  bottom: 0; transition: bottom .18s linear;
+}
+.chip { display: flex; flex-direction: column; align-items: center; gap: 2px; transform: translateY(50%); }
+.chip .av {
+  width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center;
+  font-size: 16px; line-height: 1; background: var(--panel-2); border: 1px solid var(--line-2);
+}
+.chip .nm {
+  max-width: 96%; font-size: 10.5px; color: var(--dim);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.chip.me .av { border-color: var(--accent); box-shadow: 0 0 0 2px rgba(74, 124, 255, .3); }
+.chip.me .nm { color: var(--text); font-weight: 600; }
+.chip.done .av { border-color: var(--gold); background: rgba(255, 209, 102, .16); }
+
+.railtop {
+  position: absolute; top: 0; left: 0; right: 0; padding: 4px 0 6px; text-align: center;
+  font-size: 10px; letter-spacing: .12em; text-transform: uppercase; color: var(--dim-2);
+  border-bottom: 1px dashed rgba(255, 209, 102, .45);
+  background: linear-gradient(180deg, #1b2030, rgba(27, 32, 48, 0));
+}
+
+@media (max-width: 860px) {
+  body.is-room .arena { grid-template-columns: minmax(0, 1fr); }
+  .tower { height: 220px; }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
     animation-duration: .001ms !important;

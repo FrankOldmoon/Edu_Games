@@ -32,33 +32,17 @@
   </section>
 
   <section id="viewGame" class="game-only">
-    <!-- 房间：房间号 + 邀请链接。单人时整条不显示 -->
-    <div class="roombar" id="roomBar" hidden>
-      <span class="roomcode" id="roomCode"></span>
-      <span class="roommeta" id="roomMeta"></span>
-      <span class="spacer"></span>
-      <button class="btn" id="btnInvite" type="button" data-i18n="ui.invite">Copy invite link</button>
-      <button class="btn ghost" id="btnLeave" type="button" data-i18n="ui.leave">Leave</button>
-    </div>
+    <!-- 房间：房间号 + 人数 + 邀请/离开。里面由 src/game-ui/room/panel.js 填，单人时整条不显示 -->
+    <div class="roombar" id="roomBar" hidden></div>
 
     <p class="lead" id="hint"></p>
     <div class="timebar" id="timebar" data-i18n-title="ui.barTitle" title="Progress"></div>
 
     <div class="arena">
       <div class="pane">
-        <!-- 房间：还没开始时的面板 —— 改名字、看谁进来了、看从哪一关起步。
-             开始之后收起来，那一刻起键盘归判定层 -->
-        <div class="lobby" id="lobby" hidden>
-          <div class="lobbyrow">
-            <span class="lbl" id="startAt"></span>
-            <button class="btn primary" id="btnStart" type="button" data-i18n="ui.startPlaying">Start</button>
-          </div>
-          <div class="lobbyrow">
-            <label class="lbl" for="nameInput" data-i18n="ui.yourName">Your name</label>
-            <input id="nameInput" type="text" maxlength="16" autocomplete="off" spellcheck="false">
-          </div>
-          <div class="roster" id="roster"></div>
-        </div>
+        <!-- 房间：还没开始时的面板（改名 + 开始 + 名单）。里面由 room/panel.js 填，
+             点开始之后整块收起来，那一刻起键盘归判定层 -->
+        <div class="lobby" id="lobby" hidden></div>
 
         <div class="stats">
           <div class="stat"><div class="k" id="kChars" data-i18n="ui.statChars">Characters</div><div class="v" id="statChars">0 / 0</div></div>
@@ -71,12 +55,8 @@
         <p class="keytip" id="keytip"></p>
       </div>
 
-      <!-- 房间：头像塔。纵向位置 = 同一关里已经打完的比例 -->
-      <aside class="tower" id="tower" hidden>
-        <div class="lanes" id="lanes"></div>
-        <div class="chips" id="chips"></div>
-        <div class="railtop" data-i18n="ui.finishLine">finish</div>
-      </aside>
+      <!-- 房间：同关头像塔。纵向位置 = 同一关里已经打完的比例。里面由 room/panel.js 填 -->
+      <aside class="tower" id="tower" hidden></aside>
     </div>
   </section>
 </main>

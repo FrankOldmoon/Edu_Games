@@ -11,50 +11,33 @@
 
    房间号由客户端指定（老师写在黑板上的 py1 就是这间房的身份），见 index.js 的
    filterBy(["code"])；万一并发里撞了，抢输的那间会退回随机房号，客户端发现房号
-   对不上会重新 joinById(房间号) —— 自己修好，见 ownsCode。 */
+   对不上会重新 joinById(房间号) —— 自己修好，见 ownsCode。
+
+   房间号注册表、名字清洗、防刷限流都在 roomkit.js 里，和记忆房间共用一份。 */
 
 import { Room } from "@colyseus/core";
-import { RoomState, Player } from "../schema.js";
+import { TypingState, Player } from "../schemas/typing.js";
 import { loadLevels } from "../bank.js";
+import { cleanCode, cleanName, claimCode, releaseCode, createRateLimiter, roomIdFor } from "../roomkit.js";
 
 export const ROOM_NAME = "typing";
 
 const MAX_CLIENTS = 8;
-const MAX_NAME = 16;
 const MSG_WINDOW_MS = 1000;
 /* 每秒最多收这么多条 progress（Tab 一次算 4 个字符，但只发一条）。
    人打不到这个量级；这个上限是防刷屏的。测试时可以用 MSG_BUDGET 调低来验证丢包后的恢复。 */
 const MSG_BUDGET = Number(process.env.MSG_BUDGET || 200);
 
-/* 本进程里已经存在的房间号。单进程部署；多进程要换成 presence 查询。 */
-const liveCodes = new Set();
-
-export function cleanCode(v) {
-  const s = String(v === undefined || v === null ? "" : v).trim().toLowerCase();
-  return /^[a-z0-9][a-z0-9_-]{0,23}$/.test(s) ? s : "";
-}
-
-function cleanName(v, n) {
-  const s = String(v === undefined || v === null ? "" : v)
-    .replace(/[\u0000-\u001f\u007f]/g, "")   /* 控制字符剔掉，名字要能安全地画出来 */
-    .replace(/\s+/g, " ")
-    .trim();
-  return (s || "Player " + n).slice(0, MAX_NAME);
-}
-
 export class TypingRoom extends Room {
   async onCreate(options) {
     const opt = options || {};
 
-    /* 房间号：能拿就拿，被别人先拿了就不拿（这间房随后会因为房号对不上而被客户端放弃） */
+    /* 房间号：能拿就拿，被别人先拿了就不拿（这间房随后会因为房号对不上而被客户端放弃）。
+       roomId 要带游戏前缀，理由见 roomkit.js 的 roomIdFor。 */
     const code = cleanCode(opt.code);
     this.code = code;
-    this.ownsCode = false;
-    if (code && !liveCodes.has(code)) {
-      liveCodes.add(code);
-      this.ownsCode = true;
-      this.roomId = code;
-    }
+    this.ownsCode = claimCode(ROOM_NAME, code);
+    if (this.ownsCode) this.roomId = roomIdFor(ROOM_NAME, code);
 
     /* private：这间房不会被别的 joinOrCreate 顺手并进来。
        只有拿着房间号的 joinById 能进 —— ?room=py1 永远进不了 py2 的房。 */
@@ -62,12 +45,15 @@ export class TypingRoom extends Room {
 
     this.maxClients = MAX_CLIENTS;
 
-    this.levels = loadLevels();
+    /* 服务器要能拿文本校验，所以没有 text 的关卡在这一层就丢掉 */
+    this.levels = loadLevels("../games/typing/levels.json").filter(function (lv) {
+      return typeof lv.text === "string" && lv.text.length > 0;
+    });
     if (!this.levels.length) throw new Error("the typing level bank is empty");
 
-    this.rate = new Map();       /* sessionId -> { windowAt, count, warned }，不进 schema */
+    this.limiter = createRateLimiter({ windowMs: MSG_WINDOW_MS, budget: MSG_BUDGET });
 
-    this.setState(new RoomState());
+    this.setState(new TypingState());
     this.levels.forEach((lv) => {
       this.state.levelIds.push(lv.id);
       this.state.texts.push(lv.text);
@@ -94,12 +80,12 @@ export class TypingRoom extends Room {
     const p = this.state.players.get(client.sessionId);
     if (!p) return;
     this.state.players.delete(client.sessionId);
-    this.rate.delete(client.sessionId);
+    this.limiter.forget(client.sessionId);
     console.log(`[typing] ${this.roomId} -> ${p.name} left (${this.state.players.size} in room)`);
   }
 
   onDispose() {
-    if (this.ownsCode && this.code) liveCodes.delete(this.code);
+    if (this.ownsCode) releaseCode(ROOM_NAME, this.code);
     console.log(`[typing] room disposed  id=${this.roomId}`);
   }
 
@@ -131,11 +117,11 @@ export class TypingRoom extends Room {
   onProgress(client, msg) {
     const p = this.state.players.get(client.sessionId);
     if (!p || !p.playing) return;      /* 在大堂里还没开始，不收 */
-    if (!this.underBudget(client.sessionId)) {
+    if (!this.limiter.under(client.sessionId)) {
       /* 被限流丢掉的包不能悄悄丢：把权威位置推回去。
          否则客户端会以为自己在等下一关，一直等下去 —— 卡死比报错糟糕得多。
          一个窗口只回一次，免得刷屏的人把流量放大一倍。 */
-      if (this.budgetWarningDue(client.sessionId)) this.resync(client, p);
+      if (this.limiter.warnDue(client.sessionId)) this.resync(client, p);
       return;
     }
 
@@ -169,25 +155,6 @@ export class TypingRoom extends Room {
 
   resync(client, p) {
     client.send("resync", { pos: p.pos, level: p.level });
-  }
-
-  underBudget(sessionId) {
-    const now = Date.now();
-    const r = this.rate.get(sessionId);
-    if (!r || now - r.windowAt >= MSG_WINDOW_MS) {
-      this.rate.set(sessionId, { windowAt: now, count: 1, warned: false });
-      return true;
-    }
-    r.count += 1;
-    return r.count <= MSG_BUDGET;
-  }
-
-  /* 这个窗口里是不是还没提醒过他（丢包之后回一次就够了） */
-  budgetWarningDue(sessionId) {
-    const r = this.rate.get(sessionId);
-    if (!r || r.warned) return false;
-    r.warned = true;
-    return true;
   }
 
   onName(client, msg) {

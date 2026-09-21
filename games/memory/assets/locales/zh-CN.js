@@ -35,6 +35,16 @@ export default {
     next: "下一关 →",
     allDone: "全部完成，回到关卡列表",
 
+    /* ---- 房间（多人）----
+       房间条 / 大堂 / 头像塔里那些共用文案在 src/game-ui/room/locales/ 里，由 i18n.js 并进来。 */
+    playWithOthers: "和别人一起打",
+    roomTitle: "配对房间",
+    playerNo: "玩家 {n}",
+
+    connecting: "正在进入房间……",
+    connectFailed: "连不上房间服务器\n{msg}\n可以先用 cd server && npm start 起一个，或者用 ?ws=ws://主机:2568 指定地址",
+    roomClosed: "房间服务器关掉了这个房间。",
+
     loadFailed: "加载关卡失败\n{msg}",
   },
 

@@ -23,6 +23,9 @@ games/<id>/
 
 顶点两个位置要登记：`vite.config.js` 的 `rollupOptions.input`、`src/main.js` 的 `GAMES`。
 
+想加**房间（多人）**就到第 9 节 —— 那是共用的一层（`server/` + `src/game-ui/room/`），
+不用每个游戏各写一遍。
+
 ## 1. 入口与视图
 
 一个 HTML 入口，`<body data-view="list">` / `data-view="game"` 切两个视图，不换页。
@@ -211,3 +214,40 @@ reportResult("<id>", {
   翻牌状态只用正面的颜色表达。
 - **i18n 的点路径**：`t("levels.m06.defs.upper()")` 会被点号拆坏。
   按**数据键**取文案（键里可能有点号、括号）时，直接 `import` 语言包读属性，别走 `t()`。
+
+## 9. 房间（多人，可选）
+
+不是每个游戏都要，但要就只有**一套**：`games/typing` 和 `games/memory` 共用同一层，
+第三个游戏接进来只需要写清楚"这个游戏的进度是什么"。
+
+语义是固定的**各自一局**：点开始只开自己那一局、从第 1 关起步、打完一关自己进下一关；
+房间只同步"谁在、他在第几关、这一关打了多少"。塔上**只画和你同一关的人** ——
+别人打的是另一段内容，比位置没有意义。所以没有开赛时间、没有名次、没有"等其他人"。
+
+服务器（一个进程挂所有游戏的房间）：
+
+- `server/roomkit.js` —— 房间号注册表（键是 `<游戏>/<房号>`）、名字清洗、防刷限流。和游戏无关。
+- `server/schemas/progress.js` —— 通用的 `Player`（`name playing level pos connected`）
+  和 `ProgressState`（`levelIds players`）。"一关一个进度数"的游戏直接用；打字多要一份
+  目标文本（`schemas/typing.js`），配对什么都不用加。
+- `server/rooms/<game>Room.js` —— 一个游戏一个 Room，在 `server/index.js` 里并排
+  `define(...).filterBy(["code"])`；各自的 `onProgress` 自己写。
+
+客户端（`src/game-ui/room/`）：`net.js` 管 `?room=` / `?ws=` / `?username=` 和进房握手；
+`panel.js` 生成房间条 / 大堂 / 同关头像塔；`locales/` 是共用文案，
+由游戏的 `i18n.js` 用 `Object.assign({}, en, roomEn)` 并进 `room.*`。
+游戏的 HTML 只留三个**空宿主**（`#roomBar` `#lobby` `#tower`），样式在 `base.css` 里
+（`.roombar / .lobby / .roster / .tower`，含那条把 `[hidden]` 钉死的规则）。
+
+两条必须知道的：
+
+- **roomId 要带游戏前缀**（`<游戏>-<房号>`）：matchmaker 的房间表是按 roomId 全局唯一存的、
+  没有查重，所以打字的 py1 和配对的 py1 会互相顶掉。学生看到 / 输入 / 分享的仍然是 `py1`。
+  两边同一规则：`server/roomkit.js` 的 `roomIdFor` 与 `src/game-ui/room/net.js` 的 `roomIdFor`。
+- **能验才验**：打字的目标文本在服务器手上，所以服务器逐字符比对、并由服务器推进关卡；
+  配对的牌只存在于浏览器里（而且每人洗牌不同），服务器验不了，就只做范围检查
+  （一关一关往前、不超过这一关的对数），关卡由客户端推。**每一条上报都带完整真相**，
+  丢一条下一条自己就修正回来了 —— 所以配对那条路不需要"回推权威位置"。
+
+细节与两边的例子见 README 的 [Sharing a room](../README.md#sharing-a-room)。
+课堂要的是"同房间、看得见谁在第几关"，不是防作弊 —— 这一点要说清楚。

@@ -41,6 +41,17 @@ export default {
     next: "Next →",
     allDone: "All done — back to the level list",
 
+    /* ---- 房间（多人）----
+       房间条 / 大堂 / 头像塔里那些共用文案（房间号、邀请、离开、名字、开始、
+       同关提示、终点）在 src/game-ui/room/locales/ 里，由 i18n.js 并进来。 */
+    playWithOthers: "Play with others",
+    roomTitle: "Memory room",
+    playerNo: "Player {n}",
+
+    connecting: "Connecting to the room…",
+    connectFailed: "Could not reach the room server\n{msg}\nRun one with: cd server && npm start — or pass ?ws=ws://host:2568",
+    roomClosed: "The room server closed this room.",
+
     loadFailed: "Could not load the levels\n{msg}",
   },
 

@@ -17,7 +17,6 @@ export default {
     reset: "重置进度",
     resetConfirm: "重置这个游戏的全部进度？",
 
-    retry: "重来",
     toList: "关卡列表",
     barTitle: "完成进度",
     levelInfo: "{n} 个字符 · 不计时",
@@ -41,28 +40,15 @@ export default {
     allDone: "全部完成，回到关卡列表",
     doneIn: "用时 {time}",
 
-    /* ---- 多人 ---- */
+    /* ---- 房间（多人）----
+       房间条 / 大堂 / 头像塔里那些共用文案在 src/game-ui/room/locales/ 里，由 i18n.js 并进来。 */
     playWithOthers: "和别人一起打",
     roomTitle: "打字房间",
-    roomLabel: "房间 {code}",
-    roomMeta: "第 {level}/{levels} 关 · 同关 {here} 人 · 房间 {room} 人",
-    roomPeople: "房间里 {n} 人",
-    roomLead: "这里是各打各的：谁开始、谁打到哪，都互不影响。点开始就从第 1 关起步（共 {levels} 关），和你同一关的人会出现在右边的塔上。",
-    onLevel: "在第 {n} 关",
-    notStarted: "还没开始",
-    finishedAll: "全部关卡都打完了",
-    invite: "复制邀请链接",
-    invited: "链接已复制",
-    leave: "离开房间",
-    yourName: "你的名字",
-    startPlaying: "开始",
     levelHint: "第 {level}/{levels} 关 · {chars} 个字符",
     levelCleared: "过关 —— 下一关马上来",
     youFinished: "你这一局打完了",
     backToList: "回到列表",
-    finishLine: "终点",
     playerNo: "玩家 {n}",
-    you: "（你）",
 
     connecting: "正在进入房间……",
     connectFailed: "连不上房间服务器\n{msg}\n可以先用 cd server && npm start 起一个，或者用 ?ws=ws://主机:2568 指定地址",

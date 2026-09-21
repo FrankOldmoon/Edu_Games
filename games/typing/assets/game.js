@@ -34,11 +34,10 @@ const MODE = { SOLO: "solo", ROOM: "room" };
 
 const BAD_FLASH_MS = 260;
 const INDENT = 4;
-const LANES = 3;              /* 头像塔的泳道数，人多了就往同一条里叠（会往上抬一点错开） */
 const NAME_KEY = "typing.name";
-
-/* 头像不进 schema：sessionId 一样，各客户端算出来的就一样，零资源、不会不同步 */
-const AVATARS = ["🦊", "🐼", "🐸", "🐙", "🦉", "🐧", "🐝", "🐢", "🦄", "🐳", "🦋", "🐰"];
+/* 服务器上这个游戏的房间类型名（见 server/rooms/TypingRoom.js 的 ROOM_NAME）。
+   房间号在服务器内部是 `<这个>-<房号>`，见 src/game-ui/room/net.js 的 roomIdFor。 */
+const ROOM_NAME = "typing";
 
 let levels = bank.levels || bank;
 let prog = null;
@@ -53,10 +52,11 @@ let badTimer = null;
 /* 单人 */
 let solo = null;
 
-/* 房间 */
+/* 房间：net 是连接（src/game-ui/room/net.js），panel 是大堂 + 头像塔（room/panel.js），
+   run 是我这一局的本地状态。三者都由 enterRoom 建起来。 */
 let net = null;
+let panel = null;
 let run = null;
-const towerChips = new Map();
 
 /* ------------------------------ 文案取值 ------------------------------ */
 
@@ -86,12 +86,6 @@ function levelNoById(id) {
 
 function show(view) {
   document.body.dataset.view = view;
-}
-
-function avatarFor(id) {
-  let h = 0;
-  for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) >>> 0;
-  return AVATARS[h % AVATARS.length];
 }
 
 /* ------------------------------ 关卡列表 ------------------------------ */
@@ -251,7 +245,7 @@ function typeChunk(chunk) {
     if (board.pos >= board.chars.length) win();
     return;
   }
-  net.progress(board.pos, chunk);
+  net.progress({ pos: board.pos, chunk: chunk });
   if (board.pos < board.chars.length) {
     syncBoard();
     paintBar();
@@ -293,7 +287,7 @@ function backspace() {
   syncBoard();
   paintBar();
   paintStats();
-  if (mode === MODE.ROOM) net.progress(board.pos, "");
+  if (mode === MODE.ROOM) net.progress({ pos: board.pos, chunk: "" });
 }
 
 /* Tab 一次顶四个空格，但只在接下来的四个目标字符真的都是空格时才算数。
@@ -443,7 +437,13 @@ function toList() {
   show("list");
 }
 
-/* ------------------------------ 多人 ------------------------------ */
+/* ------------------------------ 房间（多人） ------------------------------ */
+
+/* 房间那一层（连接、大堂、头像塔）在 src/game-ui/room/ 里，和记忆游戏共用一份。
+   这里只写打字特有的东西：目标文本怎么取、过关怎么推进、成绩卡怎么给自己看。
+
+   语义是固定的"各自一局"：点开始只开自己那一局，打完一关自己进下一关，
+   塔上只画和你同一关的人。 */
 
 /* 名字：?username=Ada 最优先 —— 老师可以把名字写进链接发给每个人。
    其次是上次存下来的，最后才随便给一个"玩家 37"。 */
@@ -481,47 +481,19 @@ function playerName() {
   return auto;
 }
 
-/* 复制邀请链接。教室里的站点多半是 http://，那种情况下 navigator.clipboard 根本不存在，
-   所以还要兜一层 execCommand；两层都不行才弹 prompt 让人自己选中。 */
-function copyText(text) {
-  const btn = el("btnInvite");
-  const flash = function () {
-    const label = btn.textContent;
-    btn.textContent = t("ui.invited");
-    setTimeout(function () { btn.textContent = label; }, 1600);
-  };
-
-  const legacy = function () {
-    const ta = document.createElement("textarea");
-    ta.value = text;
-    ta.setAttribute("readonly", "readonly");
-    ta.style.position = "fixed";
-    ta.style.top = "-1000px";
-    document.body.appendChild(ta);
-    ta.select();
-    let ok = false;
-    try { ok = document.execCommand("copy"); } catch (e) { ok = false; }
-    ta.remove();
-    if (ok) flash();
-    else window.prompt(t("ui.invite"), text);
-  };
-
-  if (navigator.clipboard && navigator.clipboard.writeText) {
-    navigator.clipboard.writeText(text).then(flash, legacy);
-  } else {
-    legacy();
-  }
-}
-
 async function enterRoom(code) {
   mode = MODE.ROOM;
   document.body.classList.add("is-room");
-  /* 房间这一层是动态 import 的：不进房间就永远不会加载 colyseus.js */
+
+  /* 房间那一层是动态 import 的：不进房间就永远不会加载 colyseus.js，
+     大堂 / 头像塔那套代码也不会进单人那份包 */
   let netMod = null;
+  let panelMod = null;
   try {
-    netMod = await import("./net.js");
+    netMod = await import("../../../src/game-ui/room/net.js");
+    panelMod = await import("../../../src/game-ui/room/panel.js");
   } catch (e) {
-    el("err").textContent = t("ui.connectFailed", { msg: "net.js " + (e.message || e) });
+    el("err").textContent = t("ui.connectFailed", { msg: "room " + (e.message || e) });
     el("err").hidden = false;
     leaveRoom();
     return;
@@ -534,6 +506,7 @@ async function enterRoom(code) {
 
   try {
     net = await netMod.openRoom({
+      roomName: ROOM_NAME,
       url: netMod.serverUrl(),
       code: realCode,
       name: playerName(),
@@ -546,9 +519,9 @@ async function enterRoom(code) {
     return;
   }
 
-  netMod.writeRoomToUrl(net.roomId);
+  netMod.writeRoomToUrl(net.code);
   run = {
-    code: net.roomId,
+    code: net.code,     /* 给人看的房号（?room= 里那个） */
     playing: false,     /* 自己这一局开始了没（跟着服务器上的那个字段走） */
     myLevel: 0,         /* 我打到第几关（题库里的下标） */
     lastLevel: 0,       /* 题库最后一关的下标 */
@@ -563,18 +536,38 @@ async function enterRoom(code) {
     mod: netMod,
   };
 
-  towerChips.forEach(function (c) { c.remove(); });
-  towerChips.clear();
-  el("chips").innerHTML = "";
-  buildLanes();
-  bindRoomInputs();
+  panel = panelMod.createRoomPanel({
+    bar: el("roomBar"),
+    lobby: el("lobby"),
+    tower: el("tower"),
+    t: t,
+    /* 塔上的纵向比例 = 他在这一关敲完了多少 / 这一关一共多少字符 */
+    denomFor: function (i) { return levelText(i).length; },
+    /* 开始按钮旁边那句：一按就从第 1 关起 */
+    startLabel: function (state) {
+      return t("ui.levelNo", { n: 1 }) + " · " + levelTitleById(state.levelIds[0]);
+    },
+    nameDefault: playerName,
+    inviteUrl: function () { return net.mod.inviteUrl(net.code); },
+    onStart: function () { if (net) net.start({ levelId: firstLevelId() }); },
+    onLeave: leaveRoom,
+    onName: function (v) {
+      rememberName(v);
+      if (net) {
+        net.mod.writeNameToUrl(v);    /* 写回地址栏，刷新之后名字还在 */
+        net.setName(v);
+      }
+    },
+  });
+  panel.setCode(net.code);
+
   el("roomBar").hidden = false;
   el("lobby").hidden = false;     /* 还没点"开始"：改名字、看谁进来了、看从哪一关起步 */
   el("tower").hidden = false;
   el("keytip").innerHTML = t("ui.keyTip");
-  el("roomCode").textContent = t("ui.roomLabel", { code: net.roomId });
+  renderPreview();                /* 大堂里先把第一关摊开给你看 */
 
-  net.room.onMessage("resync", function (msg) {
+  net.onResync(function (msg) {
     /* 服务器不认这次前进：退回它认定的位置（它说的关卡也算） */
     if (!run) return;
     const lv = msg && typeof msg.level === "number" ? msg.level : run.myLevel;
@@ -615,9 +608,11 @@ function leaveRoom() {
     try { net.leave(); } catch (e) { /* 已经断了 */ }
   }
   net = null;
+  if (panel) {
+    panel.clear();
+    panel = null;
+  }
   run = null;
-  towerChips.forEach(function (c) { c.remove(); });
-  towerChips.clear();
   document.body.classList.remove("is-room");
   el("roomBar").hidden = true;
   el("tower").hidden = true;
@@ -630,48 +625,11 @@ function leaveRoom() {
   show("list");
 }
 
-function buildLanes() {
-  const host = el("lanes");
-  host.innerHTML = "";
-  for (let i = 0; i < LANES; i++) {
-    const d = document.createElement("div");
-    d.className = "lane";
-    host.appendChild(d);
-  }
-}
-
-function bindRoomInputs() {
-  const input = el("nameInput");
-  if (!input.dataset.bound) {
-    input.dataset.bound = "1";
-    input.addEventListener("change", function () {
-      const v = cleanNameInput(input.value);
-      if (!v) {
-        input.value = playerName();
-        return;
-      }
-      input.value = v;
-      rememberName(v);
-      if (run) run.mod.writeNameToUrl(v);   /* 写回地址栏，刷新之后名字还在 */
-      if (net) net.setName(v);
-    });
-  }
-  input.value = playerName();
-  renderPreview();
-  paintStartAt();
-}
-
 /* 房间里没有"挑关卡"这回事：点开始就从第一关起步。
    这里读的是服务器发下来的题库，不去本地题库里找 —— 两边必须是同一份。 */
 function firstLevelId() {
   const st = net && net.room ? net.room.state : null;
   return st && st.levelIds && st.levelIds[0] ? st.levelIds[0] : "";
-}
-
-/* 开始按钮旁边写清楚：一按就从第 1 关起 */
-function paintStartAt() {
-  const id = firstLevelId();
-  if (id) el("startAt").textContent = t("ui.levelNo", { n: 1 }) + " · " + levelTitleById(id);
 }
 
 /* 大堂里先把第一关摊开给你看：代码看得见、但还不能敲 */
@@ -704,13 +662,6 @@ function flashCode() {
   box.classList.add("advance");
 }
 
-/* 点了"开始"之后把焦点从按钮上摘下来 —— 否则接着敲 Enter / Space 会把按钮再按一次 */
-function blurChrome() {
-  const a = document.activeElement;
-  if (!a || a === document.body) return;
-  if (a.tagName === "BUTTON" || a.tagName === "SELECT" || a.tagName === "INPUT") a.blur();
-}
-
 /* 过关后如果下一关迟迟不来（那一条 progress 被服务器限流丢了，或者包丢了），
    不能就这么干等 —— 客户端会永远停在"过关了"上，人也没法再敲。
    服务器它是权威，所以拿它认定的位置，把中间缺的那一段再交一次；还不行就再试，最多三次。 */
@@ -738,7 +689,7 @@ function advanceRetry() {
   run.advanceTries = (run.advanceTries || 0) + 1;
   if (from < board.pos) {
     /* 服务器还差一截：把它缺的那段一次性补上（服务器是按"从他那儿到这儿"的原文比对的） */
-    net.progress(board.pos, levelText(run.myLevel).slice(from, board.pos));
+    net.progress({ pos: board.pos, chunk: levelText(run.myLevel).slice(from, board.pos) });
   }
   run.advanceTimer = run.advanceTries < ADVANCE_RETRY_MAX
     ? setTimeout(advanceRetry, ADVANCE_RETRY_MS)
@@ -758,7 +709,7 @@ function onRoomState() {
   const playing = !!(me && me.playing);
 
   if (playing && !run.playing) {
-    /* 刚点了开始：进到真正那一关、开表、把大堂收起来 */
+    /* 刚点了开始：进到真正那一关、开表（大堂由 panel 收起来） */
     run.myLevel = me.level;
     run.rendered = false;
     run.done = false;
@@ -767,9 +718,7 @@ function onRoomState() {
     resetTyping();
     renderBoard(levelText(run.myLevel));
     paintBar();
-    el("lobby").hidden = true;
     if (watch) watch.start();
-    blurChrome();
   }
 
   if (playing && me.level !== run.myLevel) {
@@ -794,16 +743,16 @@ function onRoomState() {
   if (run.done) showRunResult();
 
   paintHint();
-  paintRoomBar();
-  renderRoster();
-  renderTower();
+  /* 房间条、大堂、头像塔都归 panel 管（src/game-ui/room/panel.js） */
+  panel.render(st, net.sessionId);
   paintStats();
 }
 
-/* 大堂里那句说明：自己打自己的，从第一关起步，房间里互相看得见进度 */
+/* 大堂里那句说明：自己打自己的，从第一关起步，房间里互相看得见进度。
+   文案是共用的（src/game-ui/room/locales/ 的 room.lead）—— 现在不带"从第几关起"了。 */
 function lobbyLead() {
   const st = net.room.state;
-  return t("ui.roomLead", { levels: st.levelIds.length });
+  return t("room.lead", { levels: st.levelIds.length });
 }
 
 function roomHint() {
@@ -822,122 +771,8 @@ function paintHint() {
   el("hint").innerHTML = roomHint();
 }
 
-/* 房间那一行：我在第几关、同关有几个人、房间一共几个人。
-   塔上只画同关的人，所以"同关几个"得写出来，否则塔上只剩自己会莫名其妙。 */
-function paintRoomBar() {
-  const st = net.room.state;
-  if (!run.playing) {
-    el("roomMeta").textContent = t("ui.roomPeople", { n: st.players.size });
-    return;
-  }
-  let here = 0;
-  st.players.forEach(function (p) {
-    if (p.playing && p.level === run.myLevel) here += 1;
-  });
-  el("roomMeta").textContent = t("ui.roomMeta", {
-    level: run.myLevel + 1,
-    levels: Math.max(1, st.levelIds.length),
-    here: here,
-    room: st.players.size,
-  });
-}
-
-/* 大堂里的人：谁开始了就写他在第几关 —— "互相看得见进度"最直接的那一面 */
-function renderRoster() {
-  const st = net.room.state;
-  const box = el("roster");
-  box.innerHTML = "";
-  st.players.forEach(function (p, id) {
-    const c = document.createElement("span");
-    c.className = "rc" + (id === net.sessionId ? " me" : "");
-    c.textContent = avatarFor(id) + " " + p.name + (id === net.sessionId ? " " + t("ui.you") : "");
-    c.title = p.playing ? t("ui.onLevel", { n: p.level + 1 }) : t("ui.notStarted");
-    box.appendChild(c);
-  });
-}
-
-/* 头像塔：只画和我同一关、而且已经开始的人 —— 别人打的是另一段代码，比位置没有意义。
-   纵向位置 = 他在这一关打完的比例。同一泳道里挨得太近的往上抬一点，别叠成一团。 */
-function renderTower() {
-  const st = net.room.state;
-
-  if (!run.playing) {
-    towerChips.forEach(function (c) { c.remove(); });
-    towerChips.clear();
-    return;
-  }
-
-  const my = run.myLevel;
-  const total = Math.max(1, levelText(my).length);
-  const lastIdx = Math.max(0, st.levelIds.length - 1);
-  const list = [];
-  let i = 0;
-  st.players.forEach(function (p, id) {
-    if (!p.playing || p.level !== my) return;      /* 别的关卡的人不在这张图上 */
-    list.push({
-      id: id,
-      name: p.name,
-      ratio: Math.max(0, Math.min(1, p.pos / total)),
-      /* 最后一关也打满了 = 整个题库都打完了，钉在顶上变金色 */
-      finished: p.level === lastIdx && p.pos >= levelText(p.level).length,
-      me: id === net.sessionId,
-      lane: i % LANES,
-    });
-    i += 1;
-  });
-
-  const lanes = {};
-  list.forEach(function (p) {
-    if (!lanes[p.lane]) lanes[p.lane] = [];
-    lanes[p.lane].push(p);
-  });
-  Object.keys(lanes).forEach(function (k) {
-    const arr = lanes[k].sort(function (a, b) { return b.ratio - a.ratio; });
-    let prev = null;
-    let lift = 0;
-    arr.forEach(function (p) {
-      lift = prev !== null && prev - p.ratio < 0.07 ? Math.min(lift + 0.055, 0.165) : 0;
-      p.bottom = Math.min(1, p.ratio + lift);
-      prev = p.ratio;
-    });
-  });
-
-  const alive = {};
-  list.forEach(function (p) {
-    alive[p.id] = true;
-    let slot = towerChips.get(p.id);
-    if (!slot) {
-      /* 外面这层只负责"站在多高"，好让 bottom 是一个干净的百分比、过渡能动；
-         头像和名字在里面，用 translateY(50%) 把自己的中心对到那条线上。 */
-      slot = document.createElement("div");
-      slot.className = "slot";
-      const chip = document.createElement("div");
-      chip.className = "chip";
-      const av = document.createElement("span");
-      av.className = "av";
-      const nm = document.createElement("span");
-      nm.className = "nm";
-      chip.append(av, nm);
-      slot.appendChild(chip);
-      el("chips").appendChild(slot);
-      towerChips.set(p.id, slot);
-    }
-    const chip = slot.firstElementChild;
-    slot.style.setProperty("--lane", String(p.lane));
-    slot.style.bottom = (p.bottom * 100).toFixed(1) + "%";
-    chip.classList.toggle("me", p.me);
-    chip.classList.toggle("done", p.finished);
-    chip.querySelector(".av").textContent = avatarFor(p.id);
-    chip.querySelector(".nm").textContent = p.name;
-    chip.title = p.name + (p.finished ? " · " + t("ui.finishedAll") : "");
-  });
-  towerChips.forEach(function (slot, id) {
-    if (!alive[id]) {
-      slot.remove();
-      towerChips.delete(id);
-    }
-  });
-}
+/* 房间那一行、大堂名单、头像塔都搬到了 src/game-ui/room/panel.js —— 记忆游戏也用同一份。
+   这里只留"这一关是什么、进度怎么算"这类打字自己的东西（paintHint / levelText）。 */
 
 /* 自己这一局打完了的成绩卡。和单人那张一样（也是共用的 celebrate）——
    这里没有名次：没人跟你比，房间里其他人可能还在第 1 关慢慢打。 */
@@ -968,7 +803,7 @@ function showRunResult() {
     timedOut: false,
     locale: i18n.getLocale(),
     mode: "room",
-    room: net.roomId,
+    room: net.code,
     players: st.players.size,
     levels: levels,
     chars: chars,
@@ -1005,14 +840,11 @@ function relocalize() {
     paintStats();
     return;
   }
-  if (!run || !net || !net.room.state) return;
+  if (!run || !net || !net.room.state || !panel) return;
   el("lvName").textContent = t("ui.roomTitle");
-  el("roomCode").textContent = t("ui.roomLabel", { code: net.roomId });
-  paintStartAt();
+  panel.relocalize();
   paintHint();
-  paintRoomBar();
-  renderRoster();
-  renderTower();
+  panel.render(net.room.state, net.sessionId);
   paintStats();
 }
 
@@ -1056,15 +888,7 @@ async function boot() {
     }
   });
   el("btnToList").addEventListener("click", toList);
-  /* 只开始我自己这一局：一按就从第一关起步，别人完全不受影响 */
-  el("btnStart").addEventListener("click", function () {
-    if (net) net.startRun(firstLevelId());
-  });
-  el("btnLeave").addEventListener("click", leaveRoom);
-  el("btnInvite").addEventListener("click", function () {
-    if (!run) return;
-    copyText(run.mod.inviteUrl(net.roomId));
-  });
+  /* 房间条 / 大堂 / 头像塔里的按钮（开始、离开、邀请、改名）由 panel 接管，见 enterRoom */
   el("btnPlayWithOthers").addEventListener("click", function () {
     /* 新建一间：随机房号写进 URL，然后照常进房 —— 复制链接就能请人进来 */
     const url = new URL(location.href);

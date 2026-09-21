@@ -22,7 +22,6 @@ export default {
     reset: "Reset progress",
     resetConfirm: "Reset all progress for this game?",
 
-    retry: "Retry",
     toList: "Level list",
     barTitle: "Progress",
     levelInfo: "{n} characters · no timer",
@@ -46,28 +45,16 @@ export default {
     allDone: "All done — back to the level list",
     doneIn: "Finished in {time}",
 
-    /* ---- 多人 ---- */
+    /* ---- 房间（多人）----
+       房间条 / 大堂 / 头像塔里那些共用文案（房间号、邀请、离开、名字、开始、
+       同关提示、终点）在 src/game-ui/room/locales/ 里，由 i18n.js 并进来。 */
     playWithOthers: "Play with others",
     roomTitle: "Typing room",
-    roomLabel: "Room {code}",
-    roomMeta: "Level {level}/{levels} · {here} on this level · {room} in the room",
-    roomPeople: "{n} in the room",
-    roomLead: "Everyone plays their own run here — nobody starts or stops together. Press Start and you begin at level 1 of {levels}; anyone on the same level as you shows up on the tower.",
-    onLevel: "On level {n}",
-    notStarted: "has not started yet",
-    finishedAll: "every level done",
-    invite: "Copy invite link",
-    invited: "Link copied",
-    leave: "Leave",
-    yourName: "Your name",
-    startPlaying: "Start",
     levelHint: "Level {level}/{levels} · {chars} characters",
     levelCleared: "Cleared — next level coming up",
     youFinished: "You finished your run",
     backToList: "Back to the list",
-    finishLine: "finish",
     playerNo: "Player {n}",
-    you: "(you)",
 
     connecting: "Connecting to the room…",
     connectFailed: "Could not reach the room server\n{msg}\nRun one with: cd server && npm start — or pass ?ws=ws://host:2568",

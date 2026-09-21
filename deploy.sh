@@ -15,11 +15,11 @@
 #   · playwright 的浏览器下载构建用不到，跳过能省一分钟。
 #   · set -e + pull --ff-only：pull 失败就当场停。不然会把旧代码重新构建一遍，
 #     日志里看着"部署成功"，线上却还是旧的 —— 比报错糟糕得多。
-#   · 房间服务器只在 server/ 变了时才重启：重启会打断正在进行的比赛，
+#   · 房间服务器只在 server/ 变了时才重启：重启会打断正在进行的游戏，
 #     改个前端样式不该顺手把别人踢出房间。
 #
 # 想改端口/路径/进程名，用环境变量覆盖即可，例如：
-#   SITE_PORT=3010 ROOM_PORT=2568 PM2_APP=typing-room bash deploy.sh
+#   SITE_PORT=3010 ROOM_PORT=2568 PM2_APP=game-rooms bash deploy.sh
 
 set -euo pipefail
 
@@ -28,7 +28,9 @@ NODE_DIR=${NODE_DIR:-/www/server/nodejs/v24.20.0/bin}
 BRANCH=${BRANCH:-main}
 SITE_PORT=${SITE_PORT:-3010}
 ROOM_PORT=${ROOM_PORT:-2568}
-PM2_APP=${PM2_APP:-typing-room}
+# 一个进程挂所有游戏的房间，所以名字不叫 typing-room 了（那是它只会打字时的名字）
+PM2_APP=${PM2_APP:-game-rooms}
+OLD_PM2_APP=${OLD_PM2_APP:-typing-room}
 LOG=${LOG:-/www/wwwlogs/edu_games-deploy.log}
 
 if [ "$(id -u)" -ne 0 ]; then
@@ -88,6 +90,12 @@ else
     if echo "$CHANGED" | grep -qx 'server/package-lock.json'; then
       as_www "$R/server" 'npm ci'
     fi
+    # 改名那一次：老进程（typing-room）会一直占着 ROOM_PORT，新名字起不来 —— 先删掉它。
+    # 之后每次跑这条都是空转（pm2 describe 找不到就直接跳过）。
+    if [ "$PM2_APP" != "$OLD_PM2_APP" ] && pm2 describe "$OLD_PM2_APP" >/dev/null 2>&1; then
+      echo "删掉旧进程名 $OLD_PM2_APP（它占着 $ROOM_PORT）"
+      pm2 delete "$OLD_PM2_APP" || true
+    fi
     if pm2 describe "$PM2_APP" >/dev/null 2>&1; then
       pm2 restart "$PM2_APP"          # 不带 --update-env：只重启，不动它现有的环境变量
     else
@@ -95,13 +103,15 @@ else
     fi
     pm2 save
   else
-    step "只是站点改动，不动房间服务器（不打断正在进行的比赛）"
+    step "只是站点改动，不动房间服务器（不打断正在进行的游戏）"
   fi
 fi
 
 step "自检"
-site=$(curl -fsS -o /dev/null -w '%{http_code}' "http://127.0.0.1:$SITE_PORT/games/typing/" || true)
-[ "$site" = "200" ] && echo "站点 /games/typing/  → 200" || echo "警告：站点返回 ${site:-连不上}"
+for game in typing memory; do
+  code=$(curl -fsS -o /dev/null -w '%{http_code}' "http://127.0.0.1:$SITE_PORT/games/$game/" || true)
+  [ "$code" = "200" ] && echo "站点 /games/$game/ → 200" || echo "警告：/games/$game/ 返回 ${code:-连不上}"
+done
 cards=$(curl -fsS -o /dev/null -w '%{http_code}' "http://127.0.0.1:$SITE_PORT/" || true)
 [ "$cards" = "200" ] && echo "卡片墙 /            → 200" || echo "警告：卡片墙返回 ${cards:-连不上}"
 ss -ltn | grep -q ":$ROOM_PORT " && echo "房间服务器在听 $ROOM_PORT" || echo "警告：$ROOM_PORT 上没有监听"

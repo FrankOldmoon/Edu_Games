@@ -13,7 +13,7 @@ assembled yourself.
 
 | Game | What it teaches | Source |
 | --- | --- | --- |
-| **Term Memory** | Match a Python name with what it means — types, operators, built-ins, containers, branches, string methods, common errors, functions | [`games/memory`](games/memory) |
+| **Term Memory** | Match a Python name with what it means — types, operators, built-ins, containers, branches, string methods, common errors, functions; solo, or in a shared room | [`games/memory`](games/memory) |
 | **Python Syntax Spot** | Find the spots where two Python snippets differ — variables, `print` / `input`, operators, data types, `if` / `elif` / `else`, indentation | [`games/spot-the-difference`](games/spot-the-difference) |
 | **Program Assembly** | Put shuffled lines back in the order that makes the program print the target output — from three lines to a bubble sort | [`games/order`](games/order) |
 | **Slice Shot** | Predict what `start:stop:step` really selects, including negative indices and steps | [`games/slice`](games/slice) |
@@ -57,7 +57,7 @@ npm run preview    # serve the built dist/
 │   ├── spot-the-difference/ (two pages: index.html + play/index.html)
 │   ├── operator-sorter/     (Phaser, pulled from npm)
 │   └── external/            third-party mirrors — NOT tracked
-├── server/                  the typing room server (its own package.json)
+├── server/                  the room server for every game (its own package.json)
 ├── index.mjs                the mirror downloader
 ├── vite.config.js           multi-page build + copies games/external into dist/
 └── package.json
@@ -197,7 +197,9 @@ else — but **there is no race**. Each player plays their own run, starting at 
 on their own. Nobody starts or stops together, there is no countdown and no clock but
 your own; clear a level and you move straight on to the next one by yourself. What the room
 *does* sync is presence and progress — who is here, which level they are on and how far
-through it — so everyone can watch each other move.
+through it — so everyone can watch each other move. **Term Memory works the same way**
+(`?room=<code>` there too, with the matched-pair count as the progress); the two share one
+layer, described in [Sharing a room](#sharing-a-room).
 
 Each player's avatar climbs the tower on the right, and the tower shows **only the people on
 your own level**, on the same text as you: the vertical position is how far they are through
@@ -244,6 +246,56 @@ the fireworks (the shared `celebrate()`, see
 The whole multiplayer layer is a dynamic `import()`, so `colyseus.js` is a separate chunk
 that is never fetched for solo play: the game still works offline, and `?room=` on a machine
 that cannot reach a server drops back to solo with a message.
+
+## Sharing a room
+
+Typing and Term Memory are built on **one** room layer, so adding it to a third game means
+writing only the game-specific half.
+
+Server ([`server/`](server)) — one process, one port, a room type per game:
+
+- [`server/roomkit.js`](server/roomkit.js): the code registry (`<game>/<code>`), name cleaning
+  and the per-second flood limiter. Nothing in it knows what a game is.
+- [`server/schemas/progress.js`](server/schemas/progress.js): the generic `Player` (`name`,
+  `playing`, `level`, `pos`, `connected`) and `ProgressState` (`levelIds`, `players`). Any
+  "one number per level" game fits. Typing extends it with its target texts
+  ([`schemas/typing.js`](server/schemas/typing.js)); memory needs nothing more.
+- [`server/rooms/`](server/rooms): one `Room` per game, defined side by side in
+  [`server/index.js`](server/index.js). Each one decides its own `onProgress`.
+
+Client ([`src/game-ui/room/`](src/game-ui/room)) — the whole room UI, shared:
+
+- `net.js`: `?room=` / `?ws=` / `?username=` parsing, the join handshake, and the messages.
+- `panel.js`: the room bar, the lobby (name + Start + roster) and the same-level tower.
+- `locales/`: the shared strings, merged into each game's pack under `room.*` by its `i18n.js`.
+
+A game supplies three host elements (its own layout stays in its HTML/CSS), the tower's
+denominator, the line next to Start, and what "progress" means:
+
+```js
+panel = createRoomPanel({ bar, lobby, tower, t, denomFor, startLabel,
+                          onStart, onLeave, onName, inviteUrl, nameDefault });
+net.progress({ pos: board.pos, chunk: chunk });   // typing: checked against the server's text
+net.progress({ level: i, pos: matched });         // memory: range-checked only
+```
+
+Two decisions worth knowing:
+
+- **The room id is `<game>-<code>`, not the bare code.** The matchmaker keeps its rooms in one
+  global table keyed by `roomId` with no duplicate check, so a typing room and a memory room
+  both called `py1` would overwrite each other. What the students see, type and share is still
+  `py1`; only the server's internal id carries the prefix. Same rule on both sides —
+  `roomIdFor` in [`roomkit.js`](server/roomkit.js) and in
+  [`net.js`](src/game-ui/room/net.js).
+- **Only typing validates.** It holds the target text, so it can check the characters a client
+  claims to have typed — and it is the *server* that advances the level. For memory the board
+  exists only in the browser (and every player shuffles differently), so the server cannot
+  check anything: the client reports `level` plus matched pairs and the server keeps that in
+  range (one level at a time, never past that level's pair count). Because each report carries
+  the whole truth, a dropped message heals itself on the next one — memory needs no resync.
+
+Both are honest about the trade: a classroom wants "same room, see who is on which level",
+not anti-cheat.
 
 ## Mirroring third-party games
 
@@ -372,21 +424,21 @@ Development happens on a workstation; the server only pulls and builds:
 git pull --ff-only && npm ci && npm run build
 ```
 
-The typing game's room server is a **second, optional** thing: it has its own
-`package.json`, so the site's `npm ci` ignores it, and the site builds and runs without it.
-Only the multiplayer half needs it:
+The **room server** is a second, optional thing: it has its own `package.json`, so the site's
+`npm ci` ignores it, and the site builds and runs without it. Only the multiplayer half of the
+games needs it:
 
 ```bash
 cd server && npm ci && npm start        # ws://0.0.0.0:2568 — systemd/pm2 it if you like
 ```
 
-It serves WebSocket and the matchmaking POSTs; the browser reaches it on port 2568 of
-whatever host served the page unless `?ws=` says otherwise, so that port has to be open on
-the host and in any firewall in front of it. Change it with `PORT=…` — keep the client's
-`?ws=` in step if you move it. On an `https://` page the default becomes `wss://`, so a
-reverse proxy has to terminate TLS there. One process is enough for a classroom; the
-room-code registry is per-process, so more than one would need `@colyseus/redis-presence`
-and a shared driver.
+One process serves every game's rooms (typing and memory today), so it is one thing to deploy
+and one port to open. It serves WebSocket and the matchmaking POSTs; the browser reaches it on
+port 2568 of whatever host served the page unless `?ws=` says otherwise, so that port has to be
+open on the host and in any firewall in front of it. Change it with `PORT=…` — keep the client's
+`?ws=` in step if you move it. On an `https://` page the default becomes `wss://`, so a reverse
+proxy has to terminate TLS there. One process is enough for a classroom; the code registry is
+per-process, so more than one would need `@colyseus/redis-presence` and a shared driver.
 
 ### Updating a running deployment
 
@@ -440,7 +492,7 @@ sudo -u www env PATH=$NODE:/usr/bin:/bin HOME=/home/www \
 # only if you run the room server: its dependencies are its own, and so is its process
 sudo -u www env PATH=$NODE:/usr/bin:/bin HOME=/home/www npm_config_cache=/home/www/.npm \
   bash -c "cd $R/server && npm ci"
-pm2 restart typing-room || pm2 start $R/server/index.js --name typing-room \
+pm2 restart game-rooms || pm2 start $R/server/index.js --name game-rooms \
   --interpreter $NODE/node
 ```
 
