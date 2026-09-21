@@ -382,31 +382,43 @@ and a shared driver.
 
 ### Updating a running deployment
 
-`git pull` and `npm ci` are the whole site, but two details bite:
+The whole site is a pull and a build, but on a panel box (aaPanel + a site user) three
+details bite, and all three were paid for once already:
 
-- **Use `npm ci`, not a floating install.** The lockfile is committed, and `npm ci` is the
-  only command that guarantees the deployed tree matches it. `pnpm i` and `npm i` ignore
-  `package-lock.json` (pnpm wants its own lockfile) and will happily install newer versions
-  of everything.
-- **Do not mix `sudo` into a step.** Running one command as root leaves root-owned files in
-  `.git` and `node_modules`; the next unprivileged `npm ci` or `npm run build` then fails on
-  them. Run the whole sequence as whoever owns the directory, or as the same user every
-  time.
+- **Only the owner of the deploy key can pull.** That is root, while everything else wants to
+  run as the site user (`www`) because nginx serves as `www`. So the git step runs as root and
+  the files it *creates* come out root-owned; normalise them right after the pull, or the next
+  unprivileged `npm ci` / build fails on them. `chown -R` will stop on the panel's immutable
+  `.user.ini` (`chattr +i`), so exclude it.
+- **Use `npm ci`, not a floating install.** The lockfile is committed, and `npm ci` is the only
+  command that guarantees the deployed tree matches it. `pnpm i` and `npm i` ignore
+  `package-lock.json` (pnpm wants its own lockfile) and will happily install newer versions of
+  everything.
+- **Give npm a cache the site user can write.** The panel's npmrc sets
+  `cache=/www/server/nodejs/cache`, which `www` cannot write to, so pass `npm_config_cache`;
+  and skip Playwright's browser download, which the build does not need.
 
 ```bash
-set -euo pipefail                      # a failed pull must stop the deploy, not get built over
-cd /path/to/edu_games
+R=/www/wwwroot/127.0.0.1_3010
+cd $R
 git fetch --prune origin
-git pull --ff-only origin main         # ff-only: local edits on the server should fail loudly
+git pull --ff-only origin main          # as root: root is who holds the key
+find $R -name .user.ini -prune -o -print0 | xargs -0 chown www:www   # normalise ownership
+NODE=/www/server/nodejs/v24.20.0/bin
 
-export PATH=/path/to/node/bin:$PATH    # one toolchain for the whole script
-npm ci
-npm run build
+sudo -u www env PATH=$NODE:/usr/bin:/bin HOME=/home/www \
+  npm_config_cache=/home/www/.npm PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1 \
+  bash -c "cd $R && npm ci && npm run build"
 
-# only if you run the room server: its dependencies and its process are separate
-cd server && npm ci
-pm2 restart typing-room || pm2 start index.js --name typing-room
+# only if you run the room server: its dependencies are its own, and so is its process
+sudo -u www env PATH=$NODE:/usr/bin:/bin HOME=/home/www npm_config_cache=/home/www/.npm \
+  bash -c "cd $R/server && npm ci"
+pm2 restart typing-room || pm2 start $R/server/index.js --name typing-room \
+  --interpreter $NODE/node
 ```
+
+The room server also needs its port open (`ufw allow 2568/tcp` here — the panel's firewall is
+what the site on 3010 is allowed through), and `pm2 save` so it comes back after a reboot.
 
 Prefer `npm ci` over `npm install` — it installs exactly what the lockfile pins and never
 rewrites `package-lock.json`, which keeps the working tree clean on both machines.

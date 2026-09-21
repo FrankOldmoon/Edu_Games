@@ -25,7 +25,9 @@ const COUNTDOWN_MS = 3000;
 const MAX_CLIENTS = 8;
 const MAX_NAME = 16;
 const MSG_WINDOW_MS = 1000;
-const MSG_BUDGET = 200;      /* 每秒最多收这么多条 progress（Tab 一次算 4 个字符，但只发一条） */
+/* 每秒最多收这么多条 progress（Tab 一次算 4 个字符，但只发一条）。
+   人打不到这个量级；这个上限是防刷屏的。测试时可以用 MSG_BUDGET 调低来验证丢包后的恢复。 */
+const MSG_BUDGET = Number(process.env.MSG_BUDGET || 200);
 
 /* 本进程里已经存在的房间号。单进程部署；多进程要换成 presence 查询。 */
 const liveCodes = new Set();
@@ -207,7 +209,13 @@ export class TypingRoom extends Room {
     const p = this.state.players.get(client.sessionId);
     if (!p || !p.connected) return;
     if (this.state.phase !== PHASE.RACING) return;
-    if (!this.underBudget(client.sessionId)) return;   /* 刷屏的直接丢，不回包，免得反向放大流量 */
+    if (!this.underBudget(client.sessionId)) {
+      /* 被限流丢掉的包不能悄悄丢：把权威位置推回去。
+         否则客户端会以为自己在等下一关，一直等下去 —— 卡死比报错糟糕得多。
+         一个窗口只回一次，免得刷屏的人把流量放大一倍。 */
+      if (this.budgetWarningDue(client.sessionId)) this.resync(client, p);
+      return;
+    }
 
     const text = this.textFor(p);
     const pos = msg && typeof msg.pos === "number" ? Math.floor(msg.pos) : -1;
@@ -251,11 +259,19 @@ export class TypingRoom extends Room {
     const now = Date.now();
     const r = this.rate.get(sessionId);
     if (!r || now - r.windowAt >= MSG_WINDOW_MS) {
-      this.rate.set(sessionId, { windowAt: now, count: 1 });
+      this.rate.set(sessionId, { windowAt: now, count: 1, warned: false });
       return true;
     }
     r.count += 1;
     return r.count <= MSG_BUDGET;
+  }
+
+  /* 这个窗口里是不是还没提醒过他（丢包之后回一次就够了） */
+  budgetWarningDue(sessionId) {
+    const r = this.rate.get(sessionId);
+    if (!r || r.warned) return false;
+    r.warned = true;
+    return true;
   }
 
   onName(client, msg) {

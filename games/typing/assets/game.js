@@ -277,6 +277,7 @@ function typeChunk(chunk) {
     el("hint").innerHTML = t("ui.waitingOthers");
   } else {
     race.advancing = true;
+    armAdvanceWatchdog();
     el("hint").innerHTML = t("ui.levelCleared");
   }
   syncBoard();
@@ -565,6 +566,8 @@ async function enterRace(code) {
     lastPhase: "",
     startsAt: 0,
     advancing: false,  /* 过关了、下一关还没到手的这一小会儿 */
+    advanceTimer: null,
+    advanceTries: 0,
     localDone: false,  /* 整条赛道跑完了 */
     localMs: 0,
     charsDone: 0,      /* 已经打完的那几关一共多少字符（用来算整场 WPM） */
@@ -590,6 +593,7 @@ async function enterRace(code) {
     if (lv !== race.myLevel) {
       race.myLevel = lv;
       race.advancing = false;
+      clearAdvanceWatchdog();
       resetTyping();
       renderBoard(levelText(lv));
       paintBar();
@@ -600,6 +604,7 @@ async function enterRace(code) {
     if (pos < board.pos) {
       board.pos = pos;
       race.advancing = false;
+      clearAdvanceWatchdog();
       syncBoard();
       paintBar();
       paintStats();
@@ -619,6 +624,7 @@ async function enterRace(code) {
 }
 
 function leaveRace() {
+  clearAdvanceWatchdog();
   if (raceTickId) {
     clearInterval(raceTickId);
     raceTickId = null;
@@ -704,12 +710,46 @@ function levelTitleById(id) {
   return lvText(levelById(id), "title") || id;
 }
 
-/* 过一关时闪一下，让"换了一关"这件事看得见 */
+/* 过一关换下一关时闪一下，让"换了一关"这件事看得见 */
 function flashCode() {
   const box = el("code");
   box.classList.remove("advance");
   void box.offsetWidth;
   box.classList.add("advance");
+}
+
+/* 过关后如果下一关迟迟不来（那一条 progress 被服务器限流丢了，或者包丢了），
+   不能就这么干等 —— 客户端会永远停在"过关了"上，人也没法再敲。
+   服务器它是权威，所以拿它认定的位置，把中间缺的那一段再交一次；还不行就再试，最多三次。 */
+const ADVANCE_RETRY_MS = 1200;
+const ADVANCE_RETRY_MAX = 3;
+
+function clearAdvanceWatchdog() {
+  if (race && race.advanceTimer) {
+    clearTimeout(race.advanceTimer);
+    race.advanceTimer = null;
+  }
+}
+
+function armAdvanceWatchdog() {
+  if (!race) return;
+  clearAdvanceWatchdog();
+  race.advanceTries = 0;
+  race.advanceTimer = setTimeout(advanceRetry, ADVANCE_RETRY_MS);
+}
+
+function advanceRetry() {
+  if (!race || !race.advancing || !net || !net.room.state) return;
+  const me = net.room.state.players.get(net.sessionId);
+  const from = me ? me.pos : 0;
+  race.advanceTries = (race.advanceTries || 0) + 1;
+  if (from < board.pos) {
+    /* 服务器还差一截：把它缺的那段一次性补上（服务器是按"从他那儿到这儿"的原文比对的） */
+    net.progress(board.pos, levelText(race.myLevel).slice(from, board.pos));
+  }
+  race.advanceTimer = race.advanceTries < ADVANCE_RETRY_MAX
+    ? setTimeout(advanceRetry, ADVANCE_RETRY_MS)
+    : null;
 }
 
 /* 服务器是权威：关卡、位置、名次、时间都从 state 上读，本地只负责画。
@@ -744,10 +784,12 @@ function onRoomState() {
     race.charsDone += board.chars.length;   /* 刚打完那一关的长度 */
     race.myLevel = me.level;
     race.advancing = false;      /* 下一关到手了，可以接着敲 */
+    clearAdvanceWatchdog();
   }
   if (me && me.place > 0) {
     race.localDone = true;       /* 整条赛道跑完了 */
     race.advancing = false;
+    clearAdvanceWatchdog();
     if (me.timeMs > 0) race.localMs = me.timeMs;   /* 服务器给出的用时才是准的 */
   }
 
@@ -763,7 +805,10 @@ function onRoomState() {
 
   race.phase = st.phase;
   race.startsAt = st.startsAt;
-  if (race.phase === PHASE.DONE) race.advancing = false;
+  if (race.phase === PHASE.DONE) {
+    race.advancing = false;
+    clearAdvanceWatchdog();
+  }
 
   if (race.lastPhase !== race.phase) {
     onPhaseChanged(race.lastPhase, race.phase);
