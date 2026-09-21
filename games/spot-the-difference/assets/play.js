@@ -14,7 +14,7 @@
 import hljs from "highlight.js";
 import "highlight.js/styles/github-dark.css";
 
-import { launchFireworks } from "../../../src/game-ui/fireworks.js";
+import { launchFireworks, prefersReduced } from "../../../src/game-ui/fireworks.js";
 import { createCountdown } from "../../../src/game-ui/timer.js";
 import { t, i18n, mountSwitcher } from "./i18n.js";
 import { loadLevels, localizeLevels, markDone, readProgress, unlockedCount, allUnlocked } from "./levels.js";
@@ -211,9 +211,14 @@ function updateCounter(bump) {
   el.classList.add("bump");
 }
 
-/* --------------------------- 通关庆祝 ------------------------------- */
-/* 每关全部找完：半透明遮罩 + 成绩卡，卡片里自带「下一关」，同时放一轮烟花。
-   弹框不会自己消失 —— 要么点卡片里的按钮继续，要么点遮罩 / 按 Esc 收掉回去看代码。 */
+/* 通关庆祝 */
+/* 最后一处找到的那一刻：先放烟花，隔一会儿再弹成绩卡。
+   烟花是"全找完了"这一下的反馈，而卡片一出来就把两块代码盖住了 ——
+   所以先让烟花放，3 秒后卡片再弹出来（「下一关」在卡片里，按钮自然也跟着晚 3 秒）。
+   卡片不会自己消失：要么点卡片里的按钮继续，要么点遮罩 / 按 Esc 收掉回去看代码。 */
+const CELEBRATE_DELAY_MS = 3000;
+let celebrateTimer = null;
+
 function paintCelebrate() {
   $("celebrateTitle").textContent = t("ui.allFound");
   $("celebrateTime").textContent = t("ui.celebrateTime", { n: Math.ceil(solvedLeftMs / 1000) });
@@ -228,9 +233,23 @@ function showCelebrate() {
   veil.hidden = false;
   card.hidden = false;
   celebrateShownAt = performance.now();
-  fx = launchFireworks({ shells: 9 });
   const btn = $("celebrateNext");
   if (btn) btn.focus();
+}
+
+function scheduleCelebrate() {
+  fx = launchFireworks({ shells: 9 });
+  /* 系统开了"减少动态效果"就不会有烟花（launchFireworks 直接返回 null），
+     那就别让人对着空屏等 3 秒 */
+  if (prefersReduced()) {
+    showCelebrate();
+    return;
+  }
+  if (celebrateTimer) clearTimeout(celebrateTimer);
+  celebrateTimer = setTimeout(function () {
+    celebrateTimer = null;
+    showCelebrate();
+  }, CELEBRATE_DELAY_MS);
 }
 
 function hideCelebrate() {
@@ -337,7 +356,9 @@ function complete() {
   /* 顶栏那颗先藏着：弹框里有一颗，收起弹框时再放回顶栏，免得同时出现两颗「下一关」 */
   $("btnNext").hidden = true;
   labelNext();
-  showCelebrate();
+
+  /* 先放烟花，隔 3 秒再弹卡片 —— 也就是「下一关」出现的时刻 */
+  scheduleCelebrate();
 }
 
 function timeUp() {
@@ -501,6 +522,7 @@ async function boot() {
   $("btnHint").disabled = false;
   $("btnHint").onclick = showHint;
   $("btnRetry").onclick = function () {
+    if (celebrateTimer) clearTimeout(celebrateTimer);
     if (fx) fx.stop();
     location.reload();
   };

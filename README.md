@@ -100,10 +100,13 @@ enough: the hit box is measured from the rendered text, not from a character ind
 **Timer.** A level is worth ten seconds per difference, so time = differences × 10s
 (`levels.json` → `timer`, currently `base: 0`, `perDiff: 10`). A wrong click costs 5s.
 
-**Finishing a level** fires a canvas particle firework show and opens a translucent result
-dialog with its own **Next** button. The dialog never times out: press the button to carry
-on, or click outside / press `Esc` to dismiss it and look at the code you just fixed.
-`prefers-reduced-motion` skips the fireworks and keeps the dialog.
+**Finishing a level** fires a canvas particle firework show the moment the last difference is
+clicked, and opens a translucent result dialog with its own **Next** button **three seconds
+later** - the dialog covers both code panels, and that beat is what the fireworks are for. So
+the button that carries you to the next level arrives after the show, not on top of it. The
+dialog then never times out: press the button to carry on, or click outside / press `Esc` to
+dismiss it and look at the code you just fixed. `prefers-reduced-motion` skips the fireworks
+and shows the dialog at once rather than leaving you waiting out three seconds of nothing.
 
 **Level data** ([`levels.json`](games/spot-the-difference/levels.json)) holds structure only:
 
