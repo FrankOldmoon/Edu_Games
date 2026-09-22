@@ -108,12 +108,19 @@ else
 fi
 
 step "自检"
-for game in typing memory robot spot-the-difference; do
+for game in typing memory robot spot-the-difference operator-sorter/html; do
   code=$(curl -fsS -o /dev/null -w '%{http_code}' "http://127.0.0.1:$SITE_PORT/games/$game/" || true)
   [ "$code" = "200" ] && echo "站点 /games/$game/ → 200" || echo "警告：/games/$game/ 返回 ${code:-连不上}"
 done
 cards=$(curl -fsS -o /dev/null -w '%{http_code}' "http://127.0.0.1:$SITE_PORT/" || true)
 [ "$cards" = "200" ] && echo "卡片墙 /            → 200" || echo "警告：卡片墙返回 ${cards:-连不上}"
+
+# 运行时按 URL 取的文件（Vite 从入口摸不到）最容易在部署后 404 —— 单独点一次名。
+# 之前只查了各游戏目录，operator-sorter 的示例题库就是这么漏掉的。
+for f in games/operator-sorter/html/deck.datatypes.json games/operator-sorter/html/deck.sample.json; do
+  code=$(curl -fsS -o /dev/null -w '%{http_code}' "http://127.0.0.1:$SITE_PORT/$f" || true)
+  [ "$code" = "200" ] && echo "题库 /$f → 200" || echo "警告：/$f 返回 ${code:-连不上}（检查 vite.config.js 的 GAME_STATIC）"
+done
 ss -ltn | grep -q ":$ROOM_PORT " && echo "房间服务器在听 $ROOM_PORT" || echo "警告：$ROOM_PORT 上没有监听"
 chunk=$(ls -t "$R/dist/assets/" 2>/dev/null | grep -m1 '^typing-.*\.js$' || true)
 [ -n "$chunk" ] && echo "构建产物：dist/assets/$chunk"
