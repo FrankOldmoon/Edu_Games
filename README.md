@@ -3,11 +3,12 @@
 A small collection of offline-friendly HTML5 games for learning to program, the card wall
 that serves them, and a tool for mirroring third-party HTML5 games for offline use.
 
-Six games are written here, all bilingual (English + Simplified Chinese), bundled by Vite,
+Seven games are written here, all bilingual (English + Simplified Chinese), bundled by Vite,
 and pulling their libraries from npm. They are spread deliberately across the cognitive
-ladder: recalling terms, spotting a difference, ordering a program,
-typing it out character by character, and finally steering an agent with a program you
-assembled yourself.
+ladder: recalling terms, spotting a difference, ordering a program, steering an agent with a
+program you assembled yourself, typing real Python out character by character — and, the other
+side of that same coin, *reading* a program as a machine, by predicting what each variable
+holds after every line has run.
 
 ## The games
 
@@ -19,6 +20,7 @@ assembled yourself.
 | **Robot Orders** | Sequence, turning and counted repetition: drive a robot with five instructions inside a step budget; solo, or in a shared room | [`games/robot`](games/robot) |
 | **Operator Sorter** | Route parcels into the bin that names their Python operator (`*` → TIMES, `//` → FLOOR, …) | [`games/operator-sorter`](games/operator-sorter) |
 | **Python Code Typing** | Type real Python lines character by character — quotes, brackets, colons and indentation included; solo, or in a shared room where everyone plays their own run and sees the others' progress | [`games/typing`](games/typing) |
+| **Python Variable Trace** | Be the interpreter: predict what a variable holds after a line runs, and the trace table grows a row as you get it right | [`games/trace`](games/trace) |
 
 Third-party games captured with the mirror tool live in `games/external/`. That folder is
 **not tracked** — a fresh clone contains only the seven games above. See
@@ -47,17 +49,22 @@ npm run preview    # serve the built dist/
 │   └── game-ui/             shared base.css, celebrate() and progress helpers
 ├── docs/
 │   └── game-template.md     the contract every new game follows
+├── tools/
+│   ├── pytrace.py           run a snippet on real CPython, record every step (shared)
+│   └── trace-levels.py      uses it to generate games/trace/levels.json
 ├── games/
 │   ├── memory/              our games — one HTML entry each, Vite-bundled
 │   ├── order/               (register them in vite.config.js and src/main.js)
 │   ├── robot/
 │   ├── typing/
+│   ├── trace/               (levels.json is GENERATED — see Python Variable Trace)
 │   ├── spot-the-difference/ (two pages: index.html + play/index.html)
 │   ├── operator-sorter/     (Phaser, pulled from npm)
 │   └── external/            third-party mirrors — NOT tracked
 ├── server/                  the room server for every game (its own package.json)
 ├── index.mjs                the mirror downloader
-├── vite.config.js           multi-page build + copies games/external into dist/
+├── vite.config.js           multi-page build; copies games/external, the runtime-fetched
+│                            game files, and the Pyodide runtime into dist/
 └── package.json
 ```
 
@@ -254,6 +261,79 @@ The whole multiplayer layer is a dynamic `import()`, so `colyseus.js` is a separ
 that is never fetched for solo play: the game still works offline, and `?room=` on a machine
 that cannot reach a server drops back to solo with a message.
 
+## Python Variable Trace
+
+[`games/trace/`](games/trace) — the target is a short real Python program, and **you** are the
+interpreter. The code sits on the left with the line about to run highlighted; the trace table on
+the right grows a row for every line that has executed; a third panel collects what the program
+prints, one line at a time as it gets there.
+
+Before a line runs, if that line is one of the level's questions, the game asks: *"line 3, pass 2
+— once it has run, what is `total`?"*. Get it right and the line really runs and the row lands in
+the table (it flashes green). Get it wrong and that option is struck through and costs 5 seconds,
+but you can pick again — the level still finishes, and the result card reports how many you got
+right *first time*. Run out of time and the whole trace is simply laid out for you to read.
+
+The "pass 2" matters: a loop body runs once per pass, so a question about it is ambiguous without
+saying which pass.
+
+**The bank is generated, not written.** Every level in
+[`levels.json`](games/trace/levels.json) carries the complete variable snapshot after every
+executed line, and the correct answer to every question — all of it produced by running the code
+on **real CPython** ([`tools/pytrace.py`](tools/pytrace.py)), driven by
+[`tools/trace-levels.py`](tools/trace-levels.py):
+
+```bash
+python3 tools/trace-levels.py     # rewrites games/trace/levels.json, and refuses to write a bad question
+```
+
+The generator is also the safety net: you supply the options, it supplies the answer, and it
+**stops with an error** if the true value is not among your options, or if two questions land on
+the same step, or if a question asks about a variable that does not exist yet at that point. So a
+shipped question cannot be wrong — which matters, because a game that teaches wrong Python is
+worse than no game. Hand-editing `steps` or `answer` is not a thing you should do; change the
+script and re-run it.
+
+The same file is the browser's copy of the tracer: `game.js` pulls `tools/pytrace.py` in with
+Vite's `?raw` and hands the text to Pyodide, so there is exactly one tracing implementation and
+the two sides cannot drift apart.
+
+**Why not just evaluate Python in JavaScript.** A hand-written evaluator has to get `1/2`,
+negative `//`, `"ab" * 2`, `range`'s exclusive end and *which* exception a mistake raises all
+right, forever. One wrong case is a lesson taught wrong. So the runtime that computes answers is
+always real CPython — just not in the browser.
+
+**URL parameters**
+
+| Parameter | Meaning |
+| --- | --- |
+| `level=<n>` / `id=<id>` | which level to open |
+| `all=1` / `unlock=1` | unlock everything (teacher demo) |
+| `embed=1` | skip the list and start playing |
+| `json=<url>` | load a different bank (see below) |
+| `lang=en\|zh-CN` | force a language |
+
+**Tracing your own code.** One button on the level list, *Trace my own code*, takes a pasted
+snippet and runs it in the browser on real CPython via Pyodide, then steps you through the trace
+it produces. It exists for teachers; it is the **only** path in any of these games that touches a
+Python runtime, and nothing downloads until the button is pressed:
+
+- The runtime is a dependency (`pyodide`), and [`vite.config.js`](vite.config.js) copies five
+  files into `dist/pyodide/` — it is never bundled, so the site's own chunks are unaffected (the
+  trace chunk is ~28 kB; the runtime is ~13 MB and is fetched once, then cached by the browser).
+- In development a small middleware serves the same `/pyodide/…` paths out of `node_modules`, so
+  dev and deployed behave identically and 13 MB of wasm never enters the repository (`dist/` is
+  ignored).
+- Paste a program with a runaway loop and the tracer's own step cap (2000) stops it and tells you
+  so, rather than freezing the tab.
+- The result can be downloaded as a `levels.json` to host and open with `?json=<url>`. Add your own
+  questions to it and write the right answer as `correct: "<value>"` rather than counting option
+  indices — the game accepts either, and **drops** any question whose correct answer is not among
+  its options instead of shipping a question nobody can answer.
+
+Solo only for now: there is no room (`?room=`) for this game, because a trace is something you
+read at your own pace rather than a progress number to climb.
+
 ## Sharing a room
 
 Four games — typing, memory, robot and spot-the-difference — are built on **one** room layer,
@@ -443,10 +523,16 @@ requested by the **game frame** are kept.
 ## Deploying
 
 `npm run build` writes a completely static `dist/`. Point any static server at it — this
-deployment serves it with nginx as the web root. `games/external/**` is copied into `dist/`
-verbatim by [`vite.config.js`](vite.config.js), so mirrored games are served alongside the
-built ones, while Vite never parses or rewrites them. If the folder is missing, the build
-simply skips it, so a fresh clone builds fine.
+deployment serves it with nginx as the web root. Three things are copied into `dist/` verbatim by
+[`vite.config.js`](vite.config.js) and deliberately never parsed or rewritten by Vite: the
+mirrored games in `games/external/**`, the files a game fetches at runtime by URL (the
+operator-sorter sample decks), and the Pyodide runtime under `pyodide/` that Python Variable
+Trace's *trace my own code* pulls on demand. Any of them missing is a warning, not an error, so a
+fresh clone with no mirror folder still builds.
+
+One server detail, and only for the Pyodide runtime: it is fetched as `pyodide.asm.wasm`, and it
+behaves best when `.wasm` is served as `application/wasm` (recent nginx ships that in
+`mime.types`). Without it Pyodide falls back to a slower instantiation path — it still works.
 
 Development happens on a workstation; the server only pulls and builds:
 
@@ -462,7 +548,8 @@ games needs it:
 cd server && npm ci && npm start        # ws://0.0.0.0:2568 — systemd/pm2 it if you like
 ```
 
-One process serves every game's rooms (typing and memory today), so it is one thing to deploy
+One process serves every game's rooms (typing, memory, robot and spot-the-difference today), so it
+is one thing to deploy
 and one port to open. It serves WebSocket and the matchmaking POSTs; the browser reaches it on
 port 2568 of whatever host served the page unless `?ws=` says otherwise, so that port has to be
 open on the host and in any firewall in front of it. Change it with `PORT=…` — keep the client's

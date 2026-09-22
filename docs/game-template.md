@@ -91,6 +91,20 @@ import <id>Thumb from "../games/<id>/capture.png";
 { "levels": [ { "id": "m01", "cols": 4, "pairs": ["int", "str"] } ] }
 ```
 
+**答案算不出来的游戏，关卡库就生成。** `games/trace` 是这一类：它每一关都要"每一行执行完之后
+所有变量的值"，手写必错，所以由 `tools/trace-levels.py` 跑真 CPython 生成，脚本还会反过来
+检查"你给的选项里真的包含正确答案"，否则拒绝产出。这类游戏在库顶留一个 `_generatedBy`
+指回脚本，并在 README 里写清楚改题要改脚本、不要手改生成物。手写题库仍然支持：
+`?json=` 传进来的题库可以用 `correct: "<正确值>"` 代替 `answer: <下标>` —— 手写时少一个算错下标
+的机会；两种都收，找不到正确答案的题会被丢掉。
+**永远不要让一道"没有正确答案"的题上线** —— 宁可少一道题。
+
+**运行时按 URL 取的文件要单独登记。** 关卡库之外的静态文件（比如 operator-sorter 的示例题库
+`deck.datatypes.json`，或者老师自己托管、用 `?json=` 指的题库）不是 `import` 进来的，Vite
+只发它从入口模块摸得到的东西，所以这类文件**开发时正常、一部署就 404**。要发就把目录挂进
+`vite.config.js` 的 `GAME_STATIC` 表（按原路径拷进 `dist/`），并在 `deploy.sh` 的自检里点一次名
+—— `games/trace` 用 `?json=` 而不是自带这类文件，就绕开了这个坑。
+
 ## 3. i18n
 
 `assets/i18n.js` 固定写法：
