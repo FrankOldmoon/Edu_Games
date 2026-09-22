@@ -202,10 +202,16 @@ layer, described in [Sharing a room](#sharing-a-room).
 Each player's avatar climbs the tower on the right, and the tower shows **only the people on
 your own level**, on the same text as you: the vertical position is how far they are through
 *that* level, and the finish line is the top. Anyone on a different level is simply not drawn,
-because comparing positions on different texts would mean nothing. The line above the tower
-says which level you are on and how many others are there with you. Finish the last level and
-your own result card appears — there is no "race again" and no "end race"; go back to the list
-to start another run.
+because comparing positions on different texts would mean nothing.
+
+The lanes are ordered by progress — **the people furthest along are on the left**, and you slide
+left when you pass someone. A class all starts level 1 together, so the tower is built to hold a
+crowd: it works out how many avatars fit in one lane (from the tower's own height) and adds
+lanes when it needs more, growing wider than its box so you swipe left/right to see the rest.
+Within a lane avatars are pushed apart, so nobody ever hides behind anybody. The line above the
+tower says which level you are on and how many others are there with you. Finish the last level
+and your own result card appears — there is no "race again" and no "end race"; go back to the
+list to start another run.
 
 ```bash
 cd server && npm ci && npm start     # room server on ws://localhost:2568
@@ -301,11 +307,9 @@ Two decisions worth knowing:
 Both are honest about the trade: a classroom wants "same room, see who is on which level",
 not anti-cheat.
 
-**A room holds 8 people.** Colyseus locks a room once `maxClients` is reached, so the 9th
-person is refused — and the page now says *"room is full, ask for another code"* rather than
-blaming the server. A class of 30 therefore needs several room codes (`py1` … `py4`), or raise
-the cap with the `MAX_CLIENTS` environment variable on the room server (default 8). Note the
-tower is drawn for a small group: past ~10 on the same level the avatars start to pile up.
+**A room holds 50 people** (`MAX_CLIENTS`; also settable as an environment variable on the room
+server). Colyseus locks a room once the cap is reached, so the 51st person is refused — and the
+page says *"room is full, ask for another code"* rather than blaming the server.
 
 **One more thing clearing a level in a room does:** it marks that level in the game's own
 progress store, so the level list *outside* the room unlocks too. Without it you could reach

@@ -254,6 +254,16 @@ reportResult("<id>", {
 `.arena > .mainpane + .tower`），样式在 `base.css` 里（`.roombar / .lobby / .roster / .tower`，
 含那条把 `[hidden]` 钉死的规则）。
 
+塔是按"一个班"画的，游戏里别自己去摆：泳道**按进度排序**（爬得高的在最左边），
+一条泳道站得下几个由塔自己的高度算出来（`TOWER_PITCH`），人多了就往右加泳道，
+超出那一格的部分靠左右滑（结构是 `.tower > .tower-scroll > .strip`，
+宽度来自 `--lanes` × `--lanew` 两个 CSS 变量）。同一条泳道里间距不够就把上面的往上顶，
+顶到天花板再整体下压 —— 所以再多的人也不会叠在一起。这些都在 `panel.js` 的 `paintTower`。
+
+一间房默认 50 人（`MAX_CLIENTS` 环境变量可改）。到上限 Colyseus 会把房间锁上，
+`net.js` 认得出这个 locked 并抛一个带 `full` 标记的错 —— 页面要照着说"房间满了、
+换个房号"，别说成"连不上服务器"（学生真的会以为服务器坏了）。
+
 两条必须知道的：
 
 - **roomId 要带游戏前缀**（`<游戏>-<房号>`）：matchmaker 的房间表是按 roomId 全局唯一存的、

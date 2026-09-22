@@ -22,9 +22,9 @@ import { cleanCode, cleanName, claimCode, releaseCode, createRateLimiter, roomId
 
 export const ROOM_NAME = "typing";
 
-/* 一间房最多几个人。超了 Colyseus 会把房间锁上，后来的人直接进不来 ——
-   一个班 30 多人要么分几间房，要么把这个数调上去（MAX_CLIENTS 环境变量）。 */
-const MAX_CLIENTS = Number(process.env.MAX_CLIENTS || 8);
+/* 一间房最多几个人。超了 Colyseus 会把房间锁上，后来的人直接进不来。
+   50 = 够装一个班；要更多（几个班一起）用 MAX_CLIENTS 环境变量放开。 */
+const MAX_CLIENTS = Number(process.env.MAX_CLIENTS || 50);
 const MSG_WINDOW_MS = 1000;
 /* 每秒最多收这么多条 progress（Tab 一次算 4 个字符，但只发一条）。
    人打不到这个量级；这个上限是防刷屏的。测试时可以用 MSG_BUDGET 调低来验证丢包后的恢复。 */

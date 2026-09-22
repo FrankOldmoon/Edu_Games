@@ -8,7 +8,8 @@
    各游戏要给的就三样：三个宿主元素（房间条 / 大堂 / 头像塔，布局留在各自的
    index.html 和 style.css 里）、一个"这一关的目标数"函数、几个回调。 */
 
-const LANES = 3;              /* 泳道数，人多了就往同一条里叠（会往上抬一点错开） */
+const MIN_LANES = 3;          /* 至少画三条泳道：小班永远是三条，和以前一样 */
+const TOWER_PITCH = 46;       /* 一个"头像+名字"大约占多高（px），用来算一条泳道站得下几个 */
 const NAME_MAX = 16;
 
 /* 头像不进 schema：sessionId 一样，各客户端算出来的就一样，零资源、不会不同步 */
@@ -88,10 +89,15 @@ export function createRoomPanel(opts) {
   /* ------------------------------ 头像塔 ------------------------------ */
 
   const lanesEl = make("div", "lanes");
-  for (let i = 0; i < LANES; i++) lanesEl.appendChild(make("div", "lane"));
   const chipsEl = make("div", "chips");
+  /* .strip 是整条可滑动的泳道带；.tower-scroll 是那一格窗口，人多时左右滑 */
+  const stripEl = make("div", "strip");
+  stripEl.append(lanesEl, chipsEl);
+  const scrollEl = make("div", "tower-scroll");
+  scrollEl.appendChild(stripEl);
   const railtopEl = make("div", "railtop");
-  opts.tower.append(lanesEl, chipsEl, railtopEl);
+  opts.tower.append(scrollEl, railtopEl);
+  let lanesMade = 0;            /* 已经画了几条泳道，变了才重建 */
 
   /* 谁在塔上：sessionId -> 外面那层 .slot（只负责"站在多高"） */
   const chips = new Map();
@@ -178,7 +184,10 @@ export function createRoomPanel(opts) {
   }
 
   /* 头像塔：只画和我同一关、而且已经开始的人。
-     纵向位置 = 他在这一关打完的比例。同一泳道里挨得太近的往上抬一点，别叠成一团。 */
+     横向 = 名次：爬得高的在最左边，往右依次是靠后的 —— 超过了谁，就往左挪一条。
+     纵向 = 他在这一关打完的比例。
+     人多就自动加泳道（按这一格的高度算一条站得下几个），加出来的宽度靠左右滑看。
+     同一条泳道里间距不够就把上面的往上顶，保证一个都不叠。 */
   function paintTower(state, sessionId, me) {
     if (!me || !me.playing) {
       chips.forEach(function (c) { c.remove(); });
@@ -190,52 +199,84 @@ export function createRoomPanel(opts) {
     const total = Math.max(1, denomFor(my));
     const lastIdx = Math.max(0, state.levelIds.length - 1);
     const list = [];
-    let i = 0;
     state.players.forEach(function (p, id) {
       if (!p.playing || p.level !== my) return;      /* 别的关卡的人不在这张图上 */
+      const denom = denomFor(p.level);
       list.push({
         id: id,
         name: p.name,
         ratio: Math.max(0, Math.min(1, p.pos / total)),
         /* 最后一关也打满了 = 整个题库都打完了，钉在顶上变金色 */
-        finished: p.level === lastIdx && p.pos >= denomFor(p.level),
+        finished: p.level === lastIdx && p.pos >= denom,
         me: id === sessionId,
-        lane: i % LANES,
       });
-      i += 1;
     });
 
-    const lanes = {};
-    list.forEach(function (p) {
-      if (!lanes[p.lane]) lanes[p.lane] = [];
-      lanes[p.lane].push(p);
+    /* 名次：进度高的在前。同分按名字、再按 id —— 图个稳定，
+       不然两个人并排的时候，每次重画都会互换位置（看着像在抖） */
+    list.sort(function (a, b) {
+      if (b.ratio !== a.ratio) return b.ratio - a.ratio;
+      if (a.finished !== b.finished) return a.finished ? -1 : 1;
+      if (a.name !== b.name) return a.name < b.name ? -1 : 1;
+      return a.id < b.id ? -1 : 1;
     });
-    Object.keys(lanes).forEach(function (k) {
-      const arr = lanes[k].sort(function (a, b) { return b.ratio - a.ratio; });
+
+    const W = scrollEl.clientWidth || 0;                 /* 看得见的那一格有多宽 */
+    const H = chipsEl.clientHeight || 0;                 /* 纵向可用高度 */
+    const cap = H > 0 ? Math.max(1, Math.floor(H / TOWER_PITCH)) : 4;
+    const lanes = Math.max(MIN_LANES, Math.ceil(list.length / cap));
+    const per = Math.max(1, Math.ceil(list.length / lanes));
+    /* 三条以内撑满这一格；再多的泳道就按原来每条多宽往右长，超出的靠左右滑 */
+    const laneW = Math.max(56, W / Math.min(lanes, MIN_LANES));
+
+    stripEl.style.setProperty("--lanes", String(lanes));
+    stripEl.style.setProperty("--lanew", laneW.toFixed(1) + "px");
+    if (lanes !== lanesMade) {
+      lanesEl.innerHTML = "";
+      for (let i = 0; i < lanes; i++) lanesEl.appendChild(make("div", "lane"));
+      lanesMade = lanes;
+    }
+
+    /* 同一条泳道里两个头像的最小间距（换成 0~1 的比例）：
+       不够就往上顶，顶到碰天花板再整体下压 —— 所以一条泳道里再多也看得见 */
+    const GAP = H > 0 ? TOWER_PITCH / H : 0.17;
+    const byLane = {};
+    list.forEach(function (p, i) {
+      p.lane = Math.min(lanes - 1, Math.floor(i / per));
+      if (!byLane[p.lane]) byLane[p.lane] = [];
+      byLane[p.lane].push(p);
+    });
+    Object.keys(byLane).forEach(function (k) {
+      const arr = byLane[k].sort(function (a, b) { return a.ratio - b.ratio; });
       let prev = null;
-      let lift = 0;
       arr.forEach(function (p) {
-        lift = prev !== null && prev - p.ratio < 0.07 ? Math.min(lift + 0.055, 0.165) : 0;
-        p.bottom = Math.min(1, p.ratio + lift);
-        prev = p.ratio;
+        let y = p.ratio;
+        if (prev !== null && y - prev < GAP) y = prev + GAP;
+        p.bottom = y;
+        prev = y;
       });
+      const top = arr.length ? arr[arr.length - 1].bottom : 0;
+      if (top > 1) {
+        const shift = top - 1;
+        arr.forEach(function (p) { p.bottom = Math.max(0, p.bottom - shift); });
+      }
     });
 
     const alive = {};
     list.forEach(function (p) {
       alive[p.id] = true;
       let slot = chips.get(p.id);
-      if (!slot) {
-        /* 外面这层只负责"站在多高"，好让 bottom 是一个干净的百分比、过渡能动；
-           头像和名字在里面，用 translateY(50%) 把自己的中心对到那条线上。 */
+      const fresh = !slot;
+      if (fresh) {
+        /* 外面这层只负责"站哪条泳道、站多高"，好让 left/bottom 都是干净的百分比、
+           过渡能动；头像和名字在里面，用 translateY(50%) 把自己的中心对到那条线上。 */
         slot = make("div", "slot");
-        const chip = make("div", "chip");
-        chip.append(make("span", "av"), make("span", "nm"));
-        slot.appendChild(chip);
-        chipsEl.appendChild(slot);
-        chips.set(p.id, slot);
+        const c = make("div", "chip");
+        c.append(make("span", "av"), make("span", "nm"));
+        slot.appendChild(c);
       }
       const chip = slot.firstElementChild;
+      /* 新来的先把位置写好再进 DOM，免得它从最左边飘过来 */
       slot.style.setProperty("--lane", String(p.lane));
       slot.style.bottom = (p.bottom * 100).toFixed(1) + "%";
       chip.classList.toggle("me", p.me);
@@ -243,6 +284,10 @@ export function createRoomPanel(opts) {
       chip.querySelector(".av").textContent = avatarFor(p.id);
       chip.querySelector(".nm").textContent = p.name;
       chip.title = p.name + (p.finished ? " · " + t("room.finishedAll") : "");
+      if (fresh) {
+        chipsEl.appendChild(slot);
+        chips.set(p.id, slot);
+      }
     });
     chips.forEach(function (slot, id) {
       if (!alive[id]) {

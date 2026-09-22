@@ -256,7 +256,7 @@ button.lv { cursor: pointer; }
   display: grid; grid-template-columns: minmax(0, 1fr);
   gap: 18px; align-items: start; max-width: 1180px; margin: 0 auto;
 }
-body.is-room .arena { grid-template-columns: minmax(0, 1fr) 240px; }
+body.is-room .arena { grid-template-columns: minmax(0, 1fr) clamp(240px, 26vw, 360px); }
 .pane { min-width: 0; }
 
 /* 房间条：房间号 + 人数 + 邀请/离开 */
@@ -295,10 +295,26 @@ body.is-room .arena { grid-template-columns: minmax(0, 1fr) 240px; }
 
 /* 头像塔：纵向位置 = 已打完的比例。底部 46px 和顶部 30px 是给头像留的余量，
    否则比例到 100% 时头像会被 overflow 切掉一半。
-   高度跟着视口走：太高会把整页撑得空荡荡，太矮几条泳道就叠在一起了。 */
+   高度跟着视口走：太高会把整页撑得空荡荡，太矮几条泳道就叠在一起了。
+
+   横着看：泳道是**按进度排好序**的 —— 爬得高的在最左边，往右依次是靠后的。
+   人多就自动加泳道（panel.js 按高度算出每条能站几个），加出来的宽度靠这一层左右滑。
+   高度不用变，因为"再多的人"是往右长，不是往上挤。 */
 .tower {
   position: relative; height: clamp(300px, 48vh, 520px); overflow: hidden;
   border-radius: 12px; background: var(--panel); border: 1px solid var(--line);
+}
+.tower-scroll {
+  position: absolute; inset: 0; overflow-x: auto; overflow-y: hidden;
+  scrollbar-width: thin; overscroll-behavior-x: contain;
+}
+.tower-scroll::-webkit-scrollbar { height: 8px; }
+.tower-scroll::-webkit-scrollbar-thumb { background: var(--line-2); border-radius: 4px; }
+.tower-scroll::-webkit-scrollbar-track { background: transparent; }
+/* 泳道的总宽度 = 泳道数 × 每条宽度（都是 panel.js 算好写进来的 CSS 变量） */
+.strip {
+  position: relative; height: 100%;
+  width: calc(var(--lanes, 3) * var(--lanew, 79px)); min-width: 100%;
 }
 .lanes { position: absolute; top: 0; bottom: 0; left: 0; right: 0; display: flex; }
 .lanes .lane { flex: 1; border-right: 1px dashed var(--line); }
@@ -306,8 +322,11 @@ body.is-room .arena { grid-template-columns: minmax(0, 1fr) 240px; }
 
 .chips { position: absolute; top: 30px; bottom: 46px; left: 0; right: 0; }
 .slot {
-  position: absolute; left: calc(var(--lane, 0) * 33.3333%); width: 33.3333%;
-  bottom: 0; transition: bottom .18s linear;
+  position: absolute;
+  left: calc(var(--lane, 0) * var(--lanew, 79px)); width: var(--lanew, 79px);
+  bottom: 0;
+  /* 往上爬和"被别人超过、换到右边那条泳道"都看得见过程 */
+  transition: bottom .18s linear, left .28s cubic-bezier(.4, 0, .2, 1);
 }
 .chip { display: flex; flex-direction: column; align-items: center; gap: 2px; transform: translateY(50%); }
 .chip .av {
