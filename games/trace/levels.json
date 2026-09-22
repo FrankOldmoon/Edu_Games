@@ -1,0 +1,960 @@
+{
+  "_generatedBy": "tools/trace-levels.py —— steps/answer 都是真 Python 跑出来的，别手改；改题请改脚本再重跑",
+  "levels": [
+    {
+      "id": "t01",
+      "code": [
+        "a = 3",
+        "b = a + 2",
+        "a = b * 2",
+        "print(a)"
+      ],
+      "timer": {
+        "base": 15,
+        "per": 20
+      },
+      "steps": [
+        {
+          "line": 0,
+          "vars": {
+            "a": "3"
+          },
+          "out": 0
+        },
+        {
+          "line": 1,
+          "vars": {
+            "a": "3",
+            "b": "5"
+          },
+          "out": 0
+        },
+        {
+          "line": 2,
+          "vars": {
+            "a": "10",
+            "b": "5"
+          },
+          "out": 0
+        },
+        {
+          "line": 3,
+          "vars": {
+            "a": "10",
+            "b": "5"
+          },
+          "out": 1
+        }
+      ],
+      "out": [
+        "10"
+      ],
+      "ask": [
+        {
+          "kind": "var",
+          "step": 1,
+          "line": 1,
+          "name": "b",
+          "options": [
+            "5.0",
+            "3",
+            "5",
+            "32"
+          ],
+          "answer": 2
+        },
+        {
+          "kind": "var",
+          "step": 2,
+          "line": 2,
+          "name": "a",
+          "options": [
+            "10",
+            "5",
+            "6",
+            "52"
+          ],
+          "answer": 0
+        },
+        {
+          "kind": "out",
+          "step": 3,
+          "nth": 1,
+          "options": [
+            "10",
+            "5",
+            "52",
+            "3"
+          ],
+          "answer": 0
+        }
+      ]
+    },
+    {
+      "id": "t02",
+      "code": [
+        "word = \"Py\"",
+        "word = word + \"thon\"",
+        "n = len(word)",
+        "print(word + \"!\")"
+      ],
+      "timer": {
+        "base": 15,
+        "per": 20
+      },
+      "steps": [
+        {
+          "line": 0,
+          "vars": {
+            "word": "'Py'"
+          },
+          "out": 0
+        },
+        {
+          "line": 1,
+          "vars": {
+            "word": "'Python'"
+          },
+          "out": 0
+        },
+        {
+          "line": 2,
+          "vars": {
+            "n": "6",
+            "word": "'Python'"
+          },
+          "out": 0
+        },
+        {
+          "line": 3,
+          "vars": {
+            "n": "6",
+            "word": "'Python'"
+          },
+          "out": 1
+        }
+      ],
+      "out": [
+        "Python!"
+      ],
+      "ask": [
+        {
+          "kind": "var",
+          "step": 1,
+          "line": 1,
+          "name": "word",
+          "options": [
+            "'Python'",
+            "'Py thon'",
+            "'thon'",
+            "'Py'"
+          ],
+          "answer": 0
+        },
+        {
+          "kind": "var",
+          "step": 2,
+          "line": 2,
+          "name": "n",
+          "options": [
+            "6",
+            "'6'",
+            "4",
+            "2"
+          ],
+          "answer": 0
+        },
+        {
+          "kind": "out",
+          "step": 3,
+          "nth": 1,
+          "options": [
+            "Python!",
+            "Python",
+            "Python !",
+            "Py thon!"
+          ],
+          "answer": 0
+        }
+      ]
+    },
+    {
+      "id": "t03",
+      "code": [
+        "total = 0",
+        "for i in range(1, 4):",
+        "    total = total + i",
+        "print(total)"
+      ],
+      "timer": {
+        "base": 15,
+        "per": 20
+      },
+      "steps": [
+        {
+          "line": 0,
+          "vars": {
+            "total": "0"
+          },
+          "out": 0
+        },
+        {
+          "line": 1,
+          "vars": {
+            "i": "1",
+            "total": "0"
+          },
+          "out": 0
+        },
+        {
+          "line": 2,
+          "vars": {
+            "i": "1",
+            "total": "1"
+          },
+          "out": 0
+        },
+        {
+          "line": 1,
+          "vars": {
+            "i": "2",
+            "total": "1"
+          },
+          "out": 0
+        },
+        {
+          "line": 2,
+          "vars": {
+            "i": "2",
+            "total": "3"
+          },
+          "out": 0
+        },
+        {
+          "line": 1,
+          "vars": {
+            "i": "3",
+            "total": "3"
+          },
+          "out": 0
+        },
+        {
+          "line": 2,
+          "vars": {
+            "i": "3",
+            "total": "6"
+          },
+          "out": 0
+        },
+        {
+          "line": 1,
+          "vars": {
+            "i": "3",
+            "total": "6"
+          },
+          "out": 0
+        },
+        {
+          "line": 3,
+          "vars": {
+            "i": "3",
+            "total": "6"
+          },
+          "out": 1
+        }
+      ],
+      "out": [
+        "6"
+      ],
+      "ask": [
+        {
+          "kind": "var",
+          "step": 2,
+          "line": 2,
+          "name": "total",
+          "options": [
+            "1",
+            "0",
+            "3",
+            "6"
+          ],
+          "answer": 0
+        },
+        {
+          "kind": "var",
+          "step": 4,
+          "line": 2,
+          "name": "total",
+          "options": [
+            "3",
+            "1",
+            "2",
+            "6"
+          ],
+          "answer": 0
+        },
+        {
+          "kind": "var",
+          "step": 6,
+          "line": 2,
+          "name": "total",
+          "options": [
+            "6",
+            "3",
+            "4",
+            "10"
+          ],
+          "answer": 0
+        },
+        {
+          "kind": "out",
+          "step": 8,
+          "nth": 1,
+          "options": [
+            "6",
+            "3",
+            "10",
+            "1 2 3"
+          ],
+          "answer": 0
+        }
+      ]
+    },
+    {
+      "id": "t04",
+      "code": [
+        "xs = []",
+        "for i in range(3):",
+        "    xs.append(i * 2)",
+        "print(xs)"
+      ],
+      "timer": {
+        "base": 15,
+        "per": 20
+      },
+      "steps": [
+        {
+          "line": 0,
+          "vars": {
+            "xs": "[]"
+          },
+          "out": 0
+        },
+        {
+          "line": 1,
+          "vars": {
+            "i": "0",
+            "xs": "[]"
+          },
+          "out": 0
+        },
+        {
+          "line": 2,
+          "vars": {
+            "i": "0",
+            "xs": "[0]"
+          },
+          "out": 0
+        },
+        {
+          "line": 1,
+          "vars": {
+            "i": "1",
+            "xs": "[0]"
+          },
+          "out": 0
+        },
+        {
+          "line": 2,
+          "vars": {
+            "i": "1",
+            "xs": "[0, 2]"
+          },
+          "out": 0
+        },
+        {
+          "line": 1,
+          "vars": {
+            "i": "2",
+            "xs": "[0, 2]"
+          },
+          "out": 0
+        },
+        {
+          "line": 2,
+          "vars": {
+            "i": "2",
+            "xs": "[0, 2, 4]"
+          },
+          "out": 0
+        },
+        {
+          "line": 1,
+          "vars": {
+            "i": "2",
+            "xs": "[0, 2, 4]"
+          },
+          "out": 0
+        },
+        {
+          "line": 3,
+          "vars": {
+            "i": "2",
+            "xs": "[0, 2, 4]"
+          },
+          "out": 1
+        }
+      ],
+      "out": [
+        "[0, 2, 4]"
+      ],
+      "ask": [
+        {
+          "kind": "var",
+          "step": 4,
+          "line": 2,
+          "name": "xs",
+          "options": [
+            "[0, 2]",
+            "[0]",
+            "[0, 2, 4]",
+            "[2]"
+          ],
+          "answer": 0
+        },
+        {
+          "kind": "var",
+          "step": 6,
+          "line": 2,
+          "name": "xs",
+          "options": [
+            "[0, 2, 4]",
+            "[0, 2]",
+            "[0, 4, 8]",
+            "6"
+          ],
+          "answer": 0
+        },
+        {
+          "kind": "out",
+          "step": 8,
+          "nth": 1,
+          "options": [
+            "[0, 2, 4]",
+            "0 2 4",
+            "[0, 1, 2]",
+            "[2, 4, 6]"
+          ],
+          "answer": 0
+        }
+      ]
+    },
+    {
+      "id": "t05",
+      "code": [
+        "n = 7",
+        "if n > 5:",
+        "    label = \"big\"",
+        "else:",
+        "    label = \"small\"",
+        "print(label)"
+      ],
+      "timer": {
+        "base": 15,
+        "per": 20
+      },
+      "steps": [
+        {
+          "line": 0,
+          "vars": {
+            "n": "7"
+          },
+          "out": 0
+        },
+        {
+          "line": 1,
+          "vars": {
+            "n": "7"
+          },
+          "out": 0
+        },
+        {
+          "line": 2,
+          "vars": {
+            "label": "'big'",
+            "n": "7"
+          },
+          "out": 0
+        },
+        {
+          "line": 5,
+          "vars": {
+            "label": "'big'",
+            "n": "7"
+          },
+          "out": 1
+        }
+      ],
+      "out": [
+        "big"
+      ],
+      "ask": [
+        {
+          "kind": "var",
+          "step": 1,
+          "line": 1,
+          "name": "n",
+          "options": [
+            "7",
+            "5",
+            "True",
+            "False"
+          ],
+          "answer": 0
+        },
+        {
+          "kind": "var",
+          "step": 2,
+          "line": 2,
+          "name": "label",
+          "options": [
+            "'big'",
+            "'small'",
+            "7",
+            "None"
+          ],
+          "answer": 0
+        },
+        {
+          "kind": "out",
+          "step": 3,
+          "nth": 1,
+          "options": [
+            "big",
+            "small",
+            "7",
+            "big small"
+          ],
+          "answer": 0
+        }
+      ]
+    },
+    {
+      "id": "t06",
+      "code": [
+        "n = 3",
+        "count = 0",
+        "while n > 0:",
+        "    n = n - 1",
+        "    count = count + 1",
+        "print(count)"
+      ],
+      "timer": {
+        "base": 15,
+        "per": 20
+      },
+      "steps": [
+        {
+          "line": 0,
+          "vars": {
+            "n": "3"
+          },
+          "out": 0
+        },
+        {
+          "line": 1,
+          "vars": {
+            "count": "0",
+            "n": "3"
+          },
+          "out": 0
+        },
+        {
+          "line": 2,
+          "vars": {
+            "count": "0",
+            "n": "3"
+          },
+          "out": 0
+        },
+        {
+          "line": 3,
+          "vars": {
+            "count": "0",
+            "n": "2"
+          },
+          "out": 0
+        },
+        {
+          "line": 4,
+          "vars": {
+            "count": "1",
+            "n": "2"
+          },
+          "out": 0
+        },
+        {
+          "line": 2,
+          "vars": {
+            "count": "1",
+            "n": "2"
+          },
+          "out": 0
+        },
+        {
+          "line": 3,
+          "vars": {
+            "count": "1",
+            "n": "1"
+          },
+          "out": 0
+        },
+        {
+          "line": 4,
+          "vars": {
+            "count": "2",
+            "n": "1"
+          },
+          "out": 0
+        },
+        {
+          "line": 2,
+          "vars": {
+            "count": "2",
+            "n": "1"
+          },
+          "out": 0
+        },
+        {
+          "line": 3,
+          "vars": {
+            "count": "2",
+            "n": "0"
+          },
+          "out": 0
+        },
+        {
+          "line": 4,
+          "vars": {
+            "count": "3",
+            "n": "0"
+          },
+          "out": 0
+        },
+        {
+          "line": 2,
+          "vars": {
+            "count": "3",
+            "n": "0"
+          },
+          "out": 0
+        },
+        {
+          "line": 5,
+          "vars": {
+            "count": "3",
+            "n": "0"
+          },
+          "out": 1
+        }
+      ],
+      "out": [
+        "3"
+      ],
+      "ask": [
+        {
+          "kind": "var",
+          "step": 3,
+          "line": 3,
+          "name": "n",
+          "options": [
+            "2",
+            "3",
+            "1",
+            "0"
+          ],
+          "answer": 0
+        },
+        {
+          "kind": "var",
+          "step": 4,
+          "line": 4,
+          "name": "count",
+          "options": [
+            "1",
+            "0",
+            "2",
+            "3"
+          ],
+          "answer": 0
+        },
+        {
+          "kind": "out",
+          "step": 12,
+          "nth": 1,
+          "options": [
+            "3",
+            "2",
+            "0",
+            "1"
+          ],
+          "answer": 0
+        }
+      ]
+    },
+    {
+      "id": "t07",
+      "code": [
+        "a = 17",
+        "b = a // 5",
+        "c = a % 5",
+        "print(b, c)"
+      ],
+      "timer": {
+        "base": 15,
+        "per": 20
+      },
+      "steps": [
+        {
+          "line": 0,
+          "vars": {
+            "a": "17"
+          },
+          "out": 0
+        },
+        {
+          "line": 1,
+          "vars": {
+            "a": "17",
+            "b": "3"
+          },
+          "out": 0
+        },
+        {
+          "line": 2,
+          "vars": {
+            "a": "17",
+            "b": "3",
+            "c": "2"
+          },
+          "out": 0
+        },
+        {
+          "line": 3,
+          "vars": {
+            "a": "17",
+            "b": "3",
+            "c": "2"
+          },
+          "out": 1
+        }
+      ],
+      "out": [
+        "3 2"
+      ],
+      "ask": [
+        {
+          "kind": "var",
+          "step": 1,
+          "line": 1,
+          "name": "b",
+          "options": [
+            "3",
+            "4",
+            "3.4",
+            "2"
+          ],
+          "answer": 0
+        },
+        {
+          "kind": "var",
+          "step": 2,
+          "line": 2,
+          "name": "c",
+          "options": [
+            "2",
+            "3",
+            "0.4",
+            "5"
+          ],
+          "answer": 0
+        },
+        {
+          "kind": "out",
+          "step": 3,
+          "nth": 1,
+          "options": [
+            "3 2",
+            "3.4 2",
+            "32",
+            "(3, 2)"
+          ],
+          "answer": 0
+        }
+      ]
+    },
+    {
+      "id": "t08",
+      "code": [
+        "for i in range(2):",
+        "    for j in range(2):",
+        "        print(i, j)"
+      ],
+      "timer": {
+        "base": 15,
+        "per": 20
+      },
+      "steps": [
+        {
+          "line": 0,
+          "vars": {
+            "i": "0"
+          },
+          "out": 0
+        },
+        {
+          "line": 1,
+          "vars": {
+            "i": "0",
+            "j": "0"
+          },
+          "out": 0
+        },
+        {
+          "line": 2,
+          "vars": {
+            "i": "0",
+            "j": "0"
+          },
+          "out": 1
+        },
+        {
+          "line": 1,
+          "vars": {
+            "i": "0",
+            "j": "1"
+          },
+          "out": 1
+        },
+        {
+          "line": 2,
+          "vars": {
+            "i": "0",
+            "j": "1"
+          },
+          "out": 2
+        },
+        {
+          "line": 1,
+          "vars": {
+            "i": "0",
+            "j": "1"
+          },
+          "out": 2
+        },
+        {
+          "line": 0,
+          "vars": {
+            "i": "1",
+            "j": "1"
+          },
+          "out": 2
+        },
+        {
+          "line": 1,
+          "vars": {
+            "i": "1",
+            "j": "0"
+          },
+          "out": 2
+        },
+        {
+          "line": 2,
+          "vars": {
+            "i": "1",
+            "j": "0"
+          },
+          "out": 3
+        },
+        {
+          "line": 1,
+          "vars": {
+            "i": "1",
+            "j": "1"
+          },
+          "out": 3
+        },
+        {
+          "line": 2,
+          "vars": {
+            "i": "1",
+            "j": "1"
+          },
+          "out": 4
+        },
+        {
+          "line": 1,
+          "vars": {
+            "i": "1",
+            "j": "1"
+          },
+          "out": 4
+        },
+        {
+          "line": 0,
+          "vars": {
+            "i": "1",
+            "j": "1"
+          },
+          "out": 4
+        }
+      ],
+      "out": [
+        "0 0",
+        "0 1",
+        "1 0",
+        "1 1"
+      ],
+      "ask": [
+        {
+          "kind": "var",
+          "step": 4,
+          "line": 2,
+          "name": "j",
+          "options": [
+            "1",
+            "0",
+            "2",
+            "i"
+          ],
+          "answer": 0
+        },
+        {
+          "kind": "var",
+          "step": 6,
+          "line": 0,
+          "name": "i",
+          "options": [
+            "1",
+            "0",
+            "2",
+            "3"
+          ],
+          "answer": 0
+        },
+        {
+          "kind": "out",
+          "step": 8,
+          "nth": 3,
+          "options": [
+            "1 0",
+            "0 1",
+            "1 1",
+            "0 0"
+          ],
+          "answer": 0
+        }
+      ]
+    }
+  ]
+}

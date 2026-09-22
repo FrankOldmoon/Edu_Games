@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title data-i18n="ui.appTitle">Python Variable Trace</title>
+<link rel="stylesheet" href="./assets/style.css">
+</head>
+<body data-view="list">
+
+<!-- 顶栏只有一条，内容按 data-view 切换：
+     列表视图 = 游戏名 + 进度 + 语言 + 重置；游戏视图 = 返回 + 关卡名 + 语言 + 计时 + 读数 + 按钮。 -->
+<header class="bar">
+  <button class="back game-only" id="btnToList" type="button" data-i18n="ui.toList">← Level list</button>
+  <span class="brand list-only" data-i18n="ui.appTitle">Python Variable Trace</span>
+  <span class="lvname game-only" id="lvName"></span>
+  <span class="progress list-only" id="progText"></span>
+  <span class="spacer"></span>
+  <span id="lang"></span>
+  <span class="clock game-only" id="clock">0:00</span>
+  <span class="counter game-only" id="counter"></span>
+  <button class="btn list-only" id="btnReset" type="button" data-i18n="ui.reset">Reset progress</button>
+  <button class="btn game-only" id="btnRetry" type="button" data-i18n="ui.retry">Retry</button>
+</header>
+
+<main>
+  <section id="viewList" class="list-only">
+    <p class="lead" id="lead"></p>
+    <div class="levels" id="levels"></div>
+
+    <!-- 老师用的那一小块：粘一段自己的代码，浏览器里用真 CPython 现算 trace。
+         只有点开这里才会去下载 Python 运行时 —— 学生玩的时候一个字节都不碰 -->
+    <div class="importbox panel">
+      <button class="btn" id="btnImport" type="button" data-i18n="ui.importOpen">Trace my own code</button>
+      <div class="importbody" id="importBody" hidden>
+        <p class="importnote" data-i18n="ui.importNote">Paste a short program. It runs on a real Python interpreter, in your browser, and the trace table comes out of it.</p>
+        <textarea id="importCode" spellcheck="false" rows="7" data-i18n-placeholder="ui.importPlaceholder" placeholder="total = 0&#10;for i in range(1, 4):&#10;    total = total + i&#10;print(total)"></textarea>
+        <div class="importrow">
+          <button class="btn primary" id="btnTrace" type="button" data-i18n="ui.importTrace">Trace it</button>
+          <button class="btn" id="btnDownload" type="button" data-i18n="ui.importDownload" disabled>Download levels.json</button>
+          <span class="importstatus" id="importStatus"></span>
+        </div>
+        <div class="err" id="importErr" hidden></div>
+      </div>
+    </div>
+
+    <div class="err" id="err" hidden></div>
+  </section>
+
+  <section id="viewGame" class="game-only">
+    <p class="lead" id="tip"></p>
+    <div class="timebar" id="timebar" data-i18n-title="ui.timeLeft" title="Time left"></div>
+
+    <!-- 问题栏占满一行，放在最上面：轮到要预测的时候，它是唯一该看的东西 -->
+    <div class="qbox idle" id="qbox"></div>
+
+    <div class="work" id="work">
+      <!-- 左边：代码，正在执行的那一行高亮 -->
+      <div class="panel codepane">
+        <div class="code" id="code"></div>
+      </div>
+
+      <!-- 右边：变量表。一行一行地长出来，列是这一关出现过的所有变量 -->
+      <div class="panel tablewrap">
+        <div class="trace" id="trace"></div>
+      </div>
+
+      <!-- 程序打印出来的东西，横跨一整行。跑一步亮一行 ——
+           输出题问的正是"下一行打印什么"，所以这里绝不会提前放答案 -->
+      <div class="panel outwrap">
+        <div class="outlbl" data-i18n="ui.output">Output</div>
+        <div class="out" id="out"></div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<script type="module" src="./assets/game.js"></script>
+</body>
+</html>

@@ -59,6 +59,60 @@ function copyGameStatic() {
   };
 }
 
+/* 变量追踪的「导入我的代码」要用真 CPython 现算 trace，那份运行时是 Pyodide。
+   它**只在老师点那个按钮时才下载** —— 学生玩的时候一个字节的 wasm 都不碰
+   （所以这里不能走 import，否则会被打进初始包）。
+
+   运行时原样发到 dist/pyodide/，Vite 不解析也不改写；开发时用一段中间件
+   直接从 node_modules 供同样的路径，这样 /pyodide/... 在开发和线上一致，
+   而且 13MB 的 wasm 不必提交进仓库（dist/ 本来就不入库）。 */
+const PYODIDE_FILES = [
+  "pyodide.mjs",
+  "pyodide.asm.mjs",
+  "pyodide.asm.wasm",
+  "python_stdlib.zip",
+  "pyodide-lock.json",
+];
+
+function pyodideRuntime() {
+  const from = resolve("node_modules/pyodide");
+  return {
+    name: "pyodide-runtime",
+
+    /* 直接 use 而不是 return 一个函数：前者排在 Vite 自己的中间件之前，
+       否则 /pyodide/pyodide.mjs 会先被 Vite 的转换中间件接走。 */
+    configureServer(server) {
+      server.middlewares.use(function (req, res, next) {
+        const m = /^\/pyodide\/([\w.-]+)$/.exec(String(req.url || "").split("?")[0]);
+        if (!m || PYODIDE_FILES.indexOf(m[1]) < 0) return next();
+        const file = path.join(from, m[1]);
+        if (!fs.existsSync(file)) return next();
+        res.setHeader("Content-Type", m[1].endsWith(".wasm") ? "application/wasm"
+          : m[1].endsWith(".zip") ? "application/zip"
+            : m[1].endsWith(".json") ? "application/json"
+              : "text/javascript");
+        fs.createReadStream(file).pipe(res);
+      });
+    },
+
+    closeBundle() {
+      if (!fs.existsSync(from)) {
+        console.warn("\n  ! node_modules/pyodide 不在 —— 变量追踪的「导入我的代码」用不了（npm i pyodide）");
+        return;
+      }
+      const to = resolve("dist/pyodide");
+      fs.mkdirSync(to, { recursive: true });
+      let n = 0;
+      for (const f of PYODIDE_FILES) {
+        if (!fs.existsSync(path.join(from, f))) continue;
+        fs.copyFileSync(path.join(from, f), path.join(to, f));
+        n += 1;
+      }
+      console.log(`\n  node_modules/pyodide -> ${path.relative(root, to)}（${n} 个文件，只在导入代码时才下载）`);
+    },
+  };
+}
+
 export default defineConfig({
   server: { host: true },
   build: {
@@ -71,6 +125,7 @@ export default defineConfig({
         "order": resolve("games/order/index.html"),
         "robot": resolve("games/robot/index.html"),
         "typing": resolve("games/typing/index.html"),
+        "trace": resolve("games/trace/index.html"),
         "operator-sorter": resolve("games/operator-sorter/html/index.html"),
         "operator-sorter-embed": resolve("games/operator-sorter/html/embed-demo.html"),
         "spot-the-difference": resolve("games/spot-the-difference/index.html"),
@@ -78,5 +133,5 @@ export default defineConfig({
       },
     },
   },
-  plugins: [copyExternalGames(), copyGameStatic()],
+  plugins: [copyExternalGames(), copyGameStatic(), pyodideRuntime()],
 });

@@ -10,5 +10,8 @@ dist/
 # deliberately kept out of the repository (and out of its history) - see README.
 games/external/
 
+# Python cache from the level-bank generators (tools/)
+__pycache__/
+
 # Hosting panel / server-local config
 .user.ini
