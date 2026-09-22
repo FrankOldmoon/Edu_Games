@@ -13,6 +13,7 @@ export default {
     invite: "复制邀请链接",
     invited: "链接已复制",
     leave: "离开房间",
+    full: "房间 {code} 满了 —— 找老师要一个新房间号，或者过一会儿再试",
     yourName: "你的名字",
     nameFromLink: "名字是你打开的链接里带的，这里改不了",
     start: "开始",

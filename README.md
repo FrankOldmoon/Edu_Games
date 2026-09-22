@@ -301,6 +301,12 @@ Two decisions worth knowing:
 Both are honest about the trade: a classroom wants "same room, see who is on which level",
 not anti-cheat.
 
+**A room holds 8 people.** Colyseus locks a room once `maxClients` is reached, so the 9th
+person is refused — and the page now says *"room is full, ask for another code"* rather than
+blaming the server. A class of 30 therefore needs several room codes (`py1` … `py4`), or raise
+the cap with the `MAX_CLIENTS` environment variable on the room server (default 8). Note the
+tower is drawn for a small group: past ~10 on the same level the avatars start to pile up.
+
 **One more thing clearing a level in a room does:** it marks that level in the game's own
 progress store, so the level list *outside* the room unlocks too. Without it you could reach
 level 5 in a room and still find the list locked.

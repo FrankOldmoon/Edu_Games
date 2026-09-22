@@ -514,8 +514,11 @@ async function enterRoom(code) {
     });
   } catch (e) {
     net = null;
+    /* 房间满了不是"连不上服务器"，得让人知道该换个房号 */
     el("err").hidden = false;
-    el("err").textContent = t("ui.connectFailed", { msg: e.message || String(e) });
+    el("err").textContent = e && e.full
+      ? t("room.full", { code: realCode })
+      : t("ui.connectFailed", { msg: e.message || String(e) });
     leaveRoom();          /* 连不上就回单人，不把人卡在白屏上 */
     return;
   }

@@ -16,6 +16,7 @@ export default {
     invite: "Copy invite link",
     invited: "Link copied",
     leave: "Leave",
+    full: "Room {code} is full — ask for another room code, or try again in a moment",
     yourName: "Your name",
     nameFromLink: "This name came from the link you opened — it cannot be changed here",
     start: "Start",

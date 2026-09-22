@@ -24,7 +24,9 @@ import { ProgressState, Player } from "../schemas/progress.js";
 import { loadLevels } from "../bank.js";
 import { cleanCode, cleanName, claimCode, releaseCode, createRateLimiter, roomIdFor } from "../roomkit.js";
 
-const MAX_CLIENTS = 8;
+/* 一间房最多几个人。超了 Colyseus 会把房间锁上，后来的人直接进不来 ——
+   一个班 30 多人要么分几间房，要么把这个数调上去（MAX_CLIENTS 环境变量）。 */
+const MAX_CLIENTS = Number(process.env.MAX_CLIENTS || 8);
 const MSG_WINDOW_MS = 1000;
 /* 人不可能一秒报 200 次；这是防刷屏的。 */
 const MSG_BUDGET = Number(process.env.MSG_BUDGET || 200);

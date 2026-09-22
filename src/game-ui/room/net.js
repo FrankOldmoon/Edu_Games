@@ -101,6 +101,13 @@ async function waitForState(room, ms) {
   return false;
 }
 
+/* 房间满了的时候，Colyseus 会把房间锁上（maxClients 到了就自动 lock），
+   后来的人拿到的是 "room \"typing-py1\" is locked" —— 这不是"连不上"，
+   得让页面能分开说（否则学生只会以为服务器坏了）。 */
+function isLocked(e) {
+  return /is locked/i.test((e && e.message) || "");
+}
+
 /* 进房。返回的 handle 把"怎么发消息"和"state 长什么样"留给调用方 ——
    各游戏发的东西不一样（打字要交一段字符，配对只报一个数）。 */
 export async function openRoom(opts) {
@@ -109,10 +116,19 @@ export async function openRoom(opts) {
   const want = roomIdFor(opts.roomName, opts.code);
   const joinOptions = { name: opts.name, code: opts.code };
 
+  function fullError() {
+    const err = new Error("room " + opts.code + " is full");
+    err.full = true;
+    return err;
+  }
+
   let room = null;
   try {
     room = await client.joinById(want, joinOptions);
   } catch (e) {
+    /* 满了就别再 joinOrCreate 碰运气：试了也只会新建一间，
+       然后因为房号被占而丢掉 —— 白建一间还多一次往返 */
+    if (isLocked(e)) throw fullError();
     room = null;
   }
 
@@ -127,6 +143,7 @@ export async function openRoom(opts) {
         room = await client.joinById(want, joinOptions);
         console.log("[room] code", opts.code, "was taken by", real, "— rejoined by id");
       } catch (e) {
+        if (isLocked(e)) throw fullError();
         throw new Error("could not join room " + opts.code);
       }
     }

@@ -623,7 +623,8 @@ async function enterRoom() {
     });
   } catch (e) {
     net = null;
-    fail(t("ui.connectFailed", { msg: e.message || String(e) }));
+    /* 房间满了不是"连不上服务器"，得让人知道该换个房号 */
+    fail(e && e.full ? t("room.full", { code: realCode }) : t("ui.connectFailed", { msg: e.message || String(e) }));
     mode = MODE.SOLO;
     document.body.classList.remove("is-room");
     return;
