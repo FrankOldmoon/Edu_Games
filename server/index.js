@@ -33,6 +33,7 @@ function countParcels(rows) {
 const MEMORY = "memory";
 const ROBOT = "robot";
 const SPOT = "spot";
+const TRACE = "trace";
 
 /* 服务器验不了的几种：配对（对数）、走迷宫（包裹数）、找不同（不同点数） */
 const MemoryRoom = makeProgressRoom({
@@ -56,6 +57,15 @@ const SpotRoom = makeProgressRoom({
   goal: (lv) => lv.diffs.length,
 });
 
+/* 变量追踪：进度 = 走到第几步（steps）.goal = 该关几步。
+   答案在题库 / 浏览器，服务器照例只守范围 —— 和配对 / 找不同同一类。 */
+const TraceRoom = makeProgressRoom({
+  game: TRACE,
+  bank: "../games/trace/levels.json",
+  keep: (lv) => Array.isArray(lv.steps) && lv.steps.length > 0,
+  goal: (lv) => lv.steps.length,
+});
+
 const PORT = Number(process.env.PORT || 2568);
 const HOST = process.env.HOST || "0.0.0.0";
 
@@ -70,9 +80,10 @@ server.define(TYPING, TypingRoom).filterBy(["code"]);
 server.define(MEMORY, MemoryRoom).filterBy(["code"]);
 server.define(ROBOT, RobotRoom).filterBy(["code"]);
 server.define(SPOT, SpotRoom).filterBy(["code"]);
+server.define(TRACE, TraceRoom).filterBy(["code"]);
 
 server.listen(PORT, HOST).then(function () {
-  console.log(`[rooms] on ws://${HOST}:${PORT}  (games: ${TYPING}, ${MEMORY}, ${ROBOT}, ${SPOT})`);
+  console.log(`[rooms] on ws://${HOST}:${PORT}  (games: ${TYPING}, ${MEMORY}, ${ROBOT}, ${SPOT}, ${TRACE})`);
 });
 
 for (const sig of ["SIGINT", "SIGTERM"]) {

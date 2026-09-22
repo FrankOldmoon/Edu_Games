@@ -34,6 +34,16 @@ export default {
     output: "程序输出",
     noOutput: "还没有任何输出",
 
+    /* ---- 房间（多人）：列表页那个入口 + 进房过渡文案。
+       room.* 那些（房号/邀请/离开/名字/开始/名册/同关提示/终点）是共用的，
+       在 src/game-ui/room/locales/，由 i18n.js 并进来。 */
+    playWithOthers: "和别人一起玩",
+    roomTitle: "变量追踪房间",
+    playerNo: "玩家 {n}",
+    connecting: "正在连进房间…",
+    connectFailed: "连不到房间服务器\n{msg}\n先跑一个：cd server && npm start —— 或用 ?ws=ws://主机:2568 指",
+    roomClosed: "房间服务器把这间房关了。",
+
     askVarPre: "第 {line} 行第 {nth} 次执行完之后，",
     askVarPost: " 是多少？",
     askOut: "这段程序打印出来的第 {nth} 行是什么？",

@@ -20,6 +20,7 @@
   <span class="clock game-only" id="clock">0:00</span>
   <span class="counter game-only" id="counter"></span>
   <button class="btn list-only" id="btnReset" type="button" data-i18n="ui.reset">Reset progress</button>
+  <button class="btn list-only" id="btnPlayWithOthers" type="button" data-i18n="ui.playWithOthers">Play with others</button>
   <button class="btn game-only" id="btnRetry" type="button" data-i18n="ui.retry">Retry</button>
 </header>
 
@@ -48,29 +49,43 @@
   </section>
 
   <section id="viewGame" class="game-only">
+    <!-- 房间：房间号 + 人数 + 邀请/离开。里面由 src/game-ui/room/panel.js 填，单人时整条不显示 -->
+    <div class="roombar" id="roomBar" hidden></div>
+
     <p class="lead" id="tip"></p>
     <div class="timebar" id="timebar" data-i18n-title="ui.timeLeft" title="Time left"></div>
 
     <!-- 问题栏占满一行，放在最上面：轮到要预测的时候，它是唯一该看的东西 -->
     <div class="qbox idle" id="qbox"></div>
 
-    <div class="work" id="work">
-      <!-- 左边：代码，正在执行的那一行高亮 -->
-      <div class="panel codepane">
-        <div class="code" id="code"></div>
+    <div class="arena">
+      <div class="pane">
+        <!-- 房间：还没开始时的面板（改名 + 开始 + 名单）。里面由 room/panel.js 填，
+             点开始之后整块收起来 -->
+        <div class="lobby" id="lobby" hidden></div>
+
+        <div class="work" id="work">
+          <!-- 左边：代码，正在执行的那一行高亮 -->
+          <div class="panel codepane">
+            <div class="code" id="code"></div>
+          </div>
+
+          <!-- 右边：变量表。一行一行地长出来，列是这一关出现过的所有变量 -->
+          <div class="panel tablewrap">
+            <div class="trace" id="trace"></div>
+          </div>
+
+          <!-- 程序打印出来的东西，横跨一整行。跑一步亮一行 ——
+               输出题问的正是"下一行打印什么"，所以这里绝不会提前放答案 -->
+          <div class="panel outwrap">
+            <div class="outlbl" data-i18n="ui.output">Output</div>
+            <div class="out" id="out"></div>
+          </div>
+        </div>
       </div>
 
-      <!-- 右边：变量表。一行一行地长出来，列是这一关出现过的所有变量 -->
-      <div class="panel tablewrap">
-        <div class="trace" id="trace"></div>
-      </div>
-
-      <!-- 程序打印出来的东西，横跨一整行。跑一步亮一行 ——
-           输出题问的正是"下一行打印什么"，所以这里绝不会提前放答案 -->
-      <div class="panel outwrap">
-        <div class="outlbl" data-i18n="ui.output">Output</div>
-        <div class="out" id="out"></div>
-      </div>
+      <!-- 房间：同关头像塔。里面由 room/panel.js 填 -->
+      <aside class="tower" id="tower" hidden></aside>
     </div>
   </section>
 </main>

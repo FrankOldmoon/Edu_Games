@@ -38,6 +38,16 @@ export default {
     output: "Output",
     noOutput: "nothing printed yet",
 
+    /* ---- 房间（多人）：列表页那个入口 + 进房过渡文案。
+       room.* 那些（房号/邀请/离开/名字/开始/名册/同关提示/终点）是共用的，
+       在 src/game-ui/room/locales/，由 i18n.js 并进来。 */
+    playWithOthers: "Play with others",
+    roomTitle: "Variable Trace room",
+    playerNo: "Player {n}",
+    connecting: "Connecting to the room…",
+    connectFailed: "Could not reach the room server\n{msg}\nRun one with: cd server && npm start — or pass ?ws=ws://host:2568",
+    roomClosed: "The room server closed this room.",
+
     /* 变量题拆成前后两半，好让变量名单独套一层 <code>（见 game.js 的 renderAsk） */
     askVarPre: "Line {line}, pass {nth} — once it has run,",
     askVarPost: "= ?",
