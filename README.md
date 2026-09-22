@@ -204,14 +204,16 @@ your own level**, on the same text as you: the vertical position is how far they
 *that* level, and the finish line is the top. Anyone on a different level is simply not drawn,
 because comparing positions on different texts would mean nothing.
 
-The lanes are ordered by progress — **the people furthest along are on the left**, and you slide
-left when you pass someone. A class all starts level 1 together, so the tower is built to hold a
-crowd: it works out how many avatars fit in one lane (from the tower's own height) and adds
-lanes when it needs more, growing wider than its box so you swipe left/right to see the rest.
-Within a lane avatars are pushed apart, so nobody ever hides behind anybody. The line above the
-tower says which level you are on and how many others are there with you. Finish the last level
-and your own result card appears — there is no "race again" and no "end race"; go back to the
-list to start another run.
+**Your own avatar is always pinned in the leftmost lane**, so you never have to hunt for
+yourself — which matters, because on a shared level of 30 the class does not fit in one screen.
+Everyone else is ranked to your right, the furthest along nearest to you, so passing someone
+slides them rightwards past you. A class all starts level 1 together, so the tower is built to
+hold a crowd: it works out how many avatars fit in one lane (from the tower's own height) and
+adds lanes when it needs more, growing wider than its box so you swipe left/right to see the
+rest — and it opens at your end, so you start by seeing yourself. Within a lane avatars are
+pushed apart, so nobody ever hides behind anybody. The line above the tower says which level you
+are on and how many others are there with you. Finish the last level and your own result card
+appears — there is no "race again" and no "end race"; go back to the list to start another run.
 
 ```bash
 cd server && npm ci && npm start     # room server on ws://localhost:2568

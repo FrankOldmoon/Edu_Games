@@ -297,9 +297,9 @@ body.is-room .arena { grid-template-columns: minmax(0, 1fr) clamp(240px, 26vw, 3
    否则比例到 100% 时头像会被 overflow 切掉一半。
    高度跟着视口走：太高会把整页撑得空荡荡，太矮几条泳道就叠在一起了。
 
-   横着看：泳道是**按进度排好序**的 —— 爬得高的在最左边，往右依次是靠后的。
-   人多就自动加泳道（panel.js 按高度算出每条能站几个），加出来的宽度靠这一层左右滑。
-   高度不用变，因为"再多的人"是往右长，不是往上挤。 */
+   横着看：**自己永远是最左边那条泳道**（panel.js 把它钉在 0 号），一眼看得见自己在哪；
+   别人按名次排在右边，越往右越靠后。人多就自动加泳道（按高度算出每条能站几个），
+   加出来的宽度靠这一层左右滑。高度不用变，因为"再多的人"是往右长，不是往上挤。 */
 .tower {
   position: relative; height: clamp(300px, 48vh, 520px); overflow: hidden;
   border-radius: 12px; background: var(--panel); border: 1px solid var(--line);

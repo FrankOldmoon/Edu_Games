@@ -184,7 +184,8 @@ export function createRoomPanel(opts) {
   }
 
   /* 头像塔：只画和我同一关、而且已经开始的人。
-     横向 = 名次：爬得高的在最左边，往右依次是靠后的 —— 超过了谁，就往左挪一条。
+     横向 = 名次，但**我自己永远钉在第 0 条泳道（最左边）** —— 一眼看得见自己在哪，
+     不用滑着找，人再多也一样。别人排在我右边，仍然是名次顺序，越往右越靠后。
      纵向 = 他在这一关打完的比例。
      人多就自动加泳道（按这一格的高度算一条站得下几个），加出来的宽度靠左右滑看。
      同一条泳道里间距不够就把上面的往上顶，保证一个都不叠。 */
@@ -221,11 +222,18 @@ export function createRoomPanel(opts) {
       return a.id < b.id ? -1 : 1;
     });
 
+    /* 自己钉在第 0 条泳道（最左边）：一眼就看得见自己在哪，不用滑着找 ——
+       人再多、我再靠后也一样。别人排在我右边，仍然是名次顺序，
+       所以越往右越靠后；我超过了谁，谁就往右挪一条。 */
+    const mine = list.filter(function (p) { return p.me; })[0] || null;
+    const others = list.filter(function (p) { return !p.me; });
+
     const W = scrollEl.clientWidth || 0;                 /* 看得见的那一格有多宽 */
     const H = chipsEl.clientHeight || 0;                 /* 纵向可用高度 */
     const cap = H > 0 ? Math.max(1, Math.floor(H / TOWER_PITCH)) : 4;
-    const lanes = Math.max(MIN_LANES, Math.ceil(list.length / cap));
-    const per = Math.max(1, Math.ceil(list.length / lanes));
+    /* 第 0 条是我的，其余每 cap 个人一条 */
+    const lanes = Math.max(MIN_LANES, 1 + Math.ceil(others.length / cap));
+    const per = Math.max(1, Math.ceil(others.length / Math.max(1, lanes - 1)));
     /* 三条以内撑满这一格；再多的泳道就按原来每条多宽往右长，超出的靠左右滑 */
     const laneW = Math.max(56, W / Math.min(lanes, MIN_LANES));
 
@@ -241,8 +249,12 @@ export function createRoomPanel(opts) {
        不够就往上顶，顶到碰天花板再整体下压 —— 所以一条泳道里再多也看得见 */
     const GAP = H > 0 ? TOWER_PITCH / H : 0.17;
     const byLane = {};
-    list.forEach(function (p, i) {
-      p.lane = Math.min(lanes - 1, Math.floor(i / per));
+    if (mine) {
+      mine.lane = 0;
+      byLane[0] = [mine];
+    }
+    others.forEach(function (p, i) {
+      p.lane = Math.min(lanes - 1, 1 + Math.floor(i / per));
       if (!byLane[p.lane]) byLane[p.lane] = [];
       byLane[p.lane].push(p);
     });
