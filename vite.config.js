@@ -25,6 +25,40 @@ function copyExternalGames() {
   };
 }
 
+/* 有些游戏目录里带着"运行时按 URL 取"的静态文件 —— 不是 import 进来的，而是用户
+   自己拼在地址栏上的：operator-sorter 的示例题库就是（?deckUrl=./deck.datatypes.json）。
+   Vite 只发它从入口模块摸得到的东西，这类文件不会进 dist；而开发时 dev server 直接
+   对着仓库目录，所以一直到部署才暴露成 404（游戏那边 fetch 失败会静默退回内置题库，
+   更难发现）。这里按**原路径**拷过去，让 ./deck.datatypes.json 这种相对地址在开发和
+   线上表现一致。新增这类文件时，把它的目录挂到下面这张表里。 */
+const GAME_STATIC = [
+  { dir: "games/operator-sorter/html", test: /^deck\..+\.json$/ },
+];
+
+function copyGameStatic() {
+  return {
+    name: "copy-game-static",
+    closeBundle() {
+      for (const { dir, test } of GAME_STATIC) {
+        const from = resolve(dir);
+        if (!fs.existsSync(from)) {
+          console.warn(`\n  ! ${dir} 不存在，运行时取的文件没发出去`);
+          continue;
+        }
+        const names = fs.readdirSync(from).filter((n) => test.test(n));
+        if (!names.length) {
+          console.warn(`\n  ! ${dir} 里没有匹配 ${test} 的文件，运行时取的文件没发出去`);
+          continue;
+        }
+        const to = path.resolve(root, "dist", dir);
+        fs.mkdirSync(to, { recursive: true });
+        for (const n of names) fs.copyFileSync(path.join(from, n), path.join(to, n));
+        console.log(`\n  ${dir} -> ${path.relative(root, to)}（${names.join(", ")}）`);
+      }
+    },
+  };
+}
+
 export default defineConfig({
   server: { host: true },
   build: {
@@ -44,5 +78,5 @@ export default defineConfig({
       },
     },
   },
-  plugins: [copyExternalGames()],
+  plugins: [copyExternalGames(), copyGameStatic()],
 });
