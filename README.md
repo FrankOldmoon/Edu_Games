@@ -313,6 +313,16 @@ not anti-cheat.
 server). Colyseus locks a room once the cap is reached, so the 51st person is refused — and the
 page says *"room is full, ask for another code"* rather than blaming the server.
 
+To raise it on a running server: `MAX_CLIENTS=100 pm2 restart game-rooms --update-env` (then
+`pm2 save`). The deploy script restarts with plain `pm2 restart` on purpose, so the setting
+survives later deploys — but if the process is ever deleted and re-created it falls back to 50.
+
+For reference, measured on one room: 200 people all typing at once (~540 progress messages a
+second) cost about **2% of one CPU core**, held p95 delivery at ~57 ms and the page at 60 fps.
+The room server is not what limits you — the horizontal scrolling is: at 200 players the tower's
+lanes total ~3600 px, about ten screens. Keep a class in one room up to 50; beyond that it still
+works, it just stops being something you can take in at a glance.
+
 **One more thing clearing a level in a room does:** it marks that level in the game's own
 progress store, so the level list *outside* the room unlocks too. Without it you could reach
 level 5 in a room and still find the list locked.
