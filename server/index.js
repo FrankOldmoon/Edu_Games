@@ -34,6 +34,7 @@ const MEMORY = "memory";
 const ROBOT = "robot";
 const SPOT = "spot";
 const TRACE = "trace";
+const BRANCH = "branch-trace";
 
 /* 服务器验不了的几种：配对（对数）、走迷宫（包裹数）、找不同（不同点数） */
 const MemoryRoom = makeProgressRoom({
@@ -66,6 +67,15 @@ const TraceRoom = makeProgressRoom({
   goal: (lv) => lv.steps.length,
 });
 
+/* 分支地牢：进度 = 走通几个岔口。goal = 本关岔口数（和客户端一致）。
+   答案/地图在题库，服务器照例只守范围。 */
+const BranchRoom = makeProgressRoom({
+  game: BRANCH,
+  bank: "../games/branch-trace/levels.json",
+  keep: (lv) => lv && lv.map && Array.isArray(lv.map.regions) && lv.map.regions.length > 0,
+  goal: (lv) => (lv.map.regions || []).length,
+});
+
 const PORT = Number(process.env.PORT || 2568);
 const HOST = process.env.HOST || "0.0.0.0";
 
@@ -81,9 +91,10 @@ server.define(MEMORY, MemoryRoom).filterBy(["code"]);
 server.define(ROBOT, RobotRoom).filterBy(["code"]);
 server.define(SPOT, SpotRoom).filterBy(["code"]);
 server.define(TRACE, TraceRoom).filterBy(["code"]);
+server.define(BRANCH, BranchRoom).filterBy(["code"]);
 
 server.listen(PORT, HOST).then(function () {
-  console.log(`[rooms] on ws://${HOST}:${PORT}  (games: ${TYPING}, ${MEMORY}, ${ROBOT}, ${SPOT}, ${TRACE})`);
+  console.log(`[rooms] on ws://${HOST}:${PORT}  (games: ${TYPING}, ${MEMORY}, ${ROBOT}, ${SPOT}, ${TRACE}, ${BRANCH})`);
 });
 
 for (const sig of ["SIGINT", "SIGTERM"]) {

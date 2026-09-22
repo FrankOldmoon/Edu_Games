@@ -15,6 +15,7 @@ import orderThumb from "../games/order/capture.png";
 import robotThumb from "../games/robot/capture.png";
 import typingThumb from "../games/typing/capture.png";
 import traceThumb from "../games/trace/capture.png";
+import branchThumb from "../games/branch-trace/capture.png";
 
 const GAMES = [
   {
@@ -113,6 +114,13 @@ const GAMES = [
     desc: "Be the interpreter: predict what each variable holds after every line runs — 8 levels, the trace table fills itself as you get them right",
     url: "./games/trace/",
     thumb: traceThumb,
+    tag: "HTML5",
+  },
+  {
+    name: "Python Branch Dungeon",
+    desc: "A little explorer walks a dungeon where every fork is an if / elif / else — pick the corridor the program really takes, dodge the dead branches, grab the coins",
+    url: "./games/branch-trace/",
+    thumb: branchThumb,
     tag: "HTML5",
   },
 ];

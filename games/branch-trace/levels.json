@@ -1,0 +1,616 @@
+{
+  "_generatedBy": "tools/branch-levels.py —— 分支/地图/金币/陷阱都由真 CPython 跑出来，别手改；改题请改脚本再重跑",
+  "levels": [
+    {
+      "id": "b01",
+      "title": "生死开关",
+      "tip": "score 够不够格，走对哪条路？",
+      "code": [
+        "score = 5",
+        "if score >= 6:",
+        "    grade = \"pass\"",
+        "else:",
+        "    grade = \"fail\"",
+        "print(grade)"
+      ],
+      "steps": [
+        {
+          "line": 0,
+          "vars": {
+            "score": "5"
+          },
+          "out": 0,
+          "next": 1
+        },
+        {
+          "line": 1,
+          "vars": {
+            "score": "5"
+          },
+          "out": 0,
+          "cond": false,
+          "next": 4
+        },
+        {
+          "line": 4,
+          "vars": {
+            "grade": "'fail'",
+            "score": "5"
+          },
+          "out": 0,
+          "next": 5
+        },
+        {
+          "line": 5,
+          "vars": {
+            "grade": "'fail'",
+            "score": "5"
+          },
+          "out": 1
+        }
+      ],
+      "timer": {
+        "base": 12,
+        "per": 20
+      },
+      "map": {
+        "rows": [
+          "S.........G",
+          "##......###",
+          "##..oo..###"
+        ],
+        "cols": 11,
+        "regions": [
+          {
+            "line": 1,
+            "lc": 2,
+            "rc": 7,
+            "branches": [
+              {
+                "label": "if score >= 6:",
+                "taken": false,
+                "dead": true,
+                "explain": "前面的条件都不成立，所以程序走了 else 分支（else:）。"
+              },
+              {
+                "label": "else:",
+                "taken": true,
+                "dead": false,
+                "explain": "前面的条件都不成立，所以程序走了 else 分支（else:）。"
+              }
+            ],
+            "explain": "前面的条件都不成立，所以程序走了 else 分支（else:）。"
+          }
+        ]
+      }
+    },
+    {
+      "id": "b02",
+      "title": "奇偶分流",
+      "tip": "偶数走 if，奇数走 else。",
+      "code": [
+        "n = 10",
+        "if n % 2 == 0:",
+        "    tag = \"even\"",
+        "else:",
+        "    tag = \"odd\"",
+        "print(tag)"
+      ],
+      "steps": [
+        {
+          "line": 0,
+          "vars": {
+            "n": "10"
+          },
+          "out": 0,
+          "next": 1
+        },
+        {
+          "line": 1,
+          "vars": {
+            "n": "10"
+          },
+          "out": 0,
+          "cond": true,
+          "next": 2
+        },
+        {
+          "line": 2,
+          "vars": {
+            "n": "10",
+            "tag": "'even'"
+          },
+          "out": 0,
+          "next": 5
+        },
+        {
+          "line": 5,
+          "vars": {
+            "n": "10",
+            "tag": "'even'"
+          },
+          "out": 1
+        }
+      ],
+      "timer": {
+        "base": 12,
+        "per": 20
+      },
+      "map": {
+        "rows": [
+          "S.........G",
+          "##..oo..###",
+          "##......###"
+        ],
+        "cols": 11,
+        "regions": [
+          {
+            "line": 1,
+            "lc": 2,
+            "rc": 7,
+            "branches": [
+              {
+                "label": "if n % 2 == 0:",
+                "taken": true,
+                "dead": false,
+                "explain": "条件 if n % 2 == 0: 为 真(True)，所以程序走进这条分支（if n % 2 == 0:）。"
+              },
+              {
+                "label": "else:",
+                "taken": false,
+                "dead": true,
+                "explain": "条件 if n % 2 == 0: 为 真(True)，所以程序走进这条分支（if n % 2 == 0:）。"
+              }
+            ],
+            "explain": "条件 if n % 2 == 0: 为 真(True)，所以程序走进这条分支（if n % 2 == 0:）。"
+          }
+        ]
+      }
+    },
+    {
+      "id": "b03",
+      "title": "三岔路",
+      "tip": "elif 一条一条拦，最先成立的那个才走。",
+      "code": [
+        "x = 7",
+        "if x < 5:",
+        "    size = \"small\"",
+        "elif x < 10:",
+        "    size = \"medium\"",
+        "else:",
+        "    size = \"large\"",
+        "print(size)"
+      ],
+      "steps": [
+        {
+          "line": 0,
+          "vars": {
+            "x": "7"
+          },
+          "out": 0,
+          "next": 1
+        },
+        {
+          "line": 1,
+          "vars": {
+            "x": "7"
+          },
+          "out": 0,
+          "cond": false,
+          "next": 3
+        },
+        {
+          "line": 3,
+          "vars": {
+            "x": "7"
+          },
+          "out": 0,
+          "cond": true,
+          "next": 4
+        },
+        {
+          "line": 4,
+          "vars": {
+            "size": "'medium'",
+            "x": "7"
+          },
+          "out": 0,
+          "next": 7
+        },
+        {
+          "line": 7,
+          "vars": {
+            "size": "'medium'",
+            "x": "7"
+          },
+          "out": 1
+        }
+      ],
+      "timer": {
+        "base": 12,
+        "per": 20
+      },
+      "map": {
+        "rows": [
+          "S.........G",
+          "##......###",
+          "##..oo..###",
+          "##......###"
+        ],
+        "cols": 11,
+        "regions": [
+          {
+            "line": 1,
+            "lc": 2,
+            "rc": 7,
+            "branches": [
+              {
+                "label": "if x < 5:",
+                "taken": false,
+                "dead": true,
+                "explain": "条件 elif x < 10: 为 真(True)，所以程序走进这条分支（elif x < 10:）。"
+              },
+              {
+                "label": "elif x < 10:",
+                "taken": true,
+                "dead": false,
+                "explain": "条件 elif x < 10: 为 真(True)，所以程序走进这条分支（elif x < 10:）。"
+              },
+              {
+                "label": "else:",
+                "taken": false,
+                "dead": true,
+                "explain": "条件 elif x < 10: 为 真(True)，所以程序走进这条分支（elif x < 10:）。"
+              }
+            ],
+            "explain": "条件 elif x < 10: 为 真(True)，所以程序走进这条分支（elif x < 10:）。"
+          }
+        ]
+      }
+    },
+    {
+      "id": "b04",
+      "title": "门里有门",
+      "tip": "先判外面的 if，进了门再判里面的。",
+      "code": [
+        "n = 8",
+        "if n > 5:",
+        "    if n > 9:",
+        "        g = \"big\"",
+        "    else:",
+        "        g = \"mid\"",
+        "else:",
+        "    g = \"small\"",
+        "print(g)"
+      ],
+      "steps": [
+        {
+          "line": 0,
+          "vars": {
+            "n": "8"
+          },
+          "out": 0,
+          "next": 1
+        },
+        {
+          "line": 1,
+          "vars": {
+            "n": "8"
+          },
+          "out": 0,
+          "cond": true,
+          "next": 2
+        },
+        {
+          "line": 2,
+          "vars": {
+            "n": "8"
+          },
+          "out": 0,
+          "cond": false,
+          "next": 5
+        },
+        {
+          "line": 5,
+          "vars": {
+            "g": "'mid'",
+            "n": "8"
+          },
+          "out": 0,
+          "next": 8
+        },
+        {
+          "line": 8,
+          "vars": {
+            "g": "'mid'",
+            "n": "8"
+          },
+          "out": 1
+        }
+      ],
+      "timer": {
+        "base": 12,
+        "per": 20
+      },
+      "map": {
+        "rows": [
+          "S................G",
+          "##..oo..#......###",
+          "##......#..oo..###"
+        ],
+        "cols": 18,
+        "regions": [
+          {
+            "line": 1,
+            "lc": 2,
+            "rc": 7,
+            "branches": [
+              {
+                "label": "if n > 5:",
+                "taken": true,
+                "dead": false,
+                "explain": "条件 if n > 5: 为 真(True)，所以程序走进这条分支（if n > 5:）。"
+              },
+              {
+                "label": "else:",
+                "taken": false,
+                "dead": true,
+                "explain": "条件 if n > 5: 为 真(True)，所以程序走进这条分支（if n > 5:）。"
+              }
+            ],
+            "explain": "条件 if n > 5: 为 真(True)，所以程序走进这条分支（if n > 5:）。"
+          },
+          {
+            "line": 2,
+            "lc": 9,
+            "rc": 14,
+            "branches": [
+              {
+                "label": "if n > 9:",
+                "taken": false,
+                "dead": true,
+                "explain": "前面的条件都不成立，所以程序走了 else 分支（else:）。"
+              },
+              {
+                "label": "else:",
+                "taken": true,
+                "dead": false,
+                "explain": "前面的条件都不成立，所以程序走了 else 分支（else:）。"
+              }
+            ],
+            "explain": "前面的条件都不成立，所以程序走了 else 分支（else:）。"
+          }
+        ]
+      }
+    },
+    {
+      "id": "b05",
+      "title": "加一把锁",
+      "tip": "and 要两个都成立才算 True。",
+      "code": [
+        "age = 16",
+        "has_id = True",
+        "if age >= 18 and has_id:",
+        "    can = \"yes\"",
+        "else:",
+        "    can = \"no\"",
+        "print(can)"
+      ],
+      "steps": [
+        {
+          "line": 0,
+          "vars": {
+            "age": "16"
+          },
+          "out": 0,
+          "next": 1
+        },
+        {
+          "line": 1,
+          "vars": {
+            "age": "16",
+            "has_id": "True"
+          },
+          "out": 0,
+          "next": 2
+        },
+        {
+          "line": 2,
+          "vars": {
+            "age": "16",
+            "has_id": "True"
+          },
+          "out": 0,
+          "cond": false,
+          "next": 5
+        },
+        {
+          "line": 5,
+          "vars": {
+            "age": "16",
+            "can": "'no'",
+            "has_id": "True"
+          },
+          "out": 0,
+          "next": 6
+        },
+        {
+          "line": 6,
+          "vars": {
+            "age": "16",
+            "can": "'no'",
+            "has_id": "True"
+          },
+          "out": 1
+        }
+      ],
+      "timer": {
+        "base": 12,
+        "per": 20
+      },
+      "map": {
+        "rows": [
+          "S.........G",
+          "##......###",
+          "##..oo..###"
+        ],
+        "cols": 11,
+        "regions": [
+          {
+            "line": 2,
+            "lc": 2,
+            "rc": 7,
+            "branches": [
+              {
+                "label": "if age >= 18 and has_id:",
+                "taken": false,
+                "dead": true,
+                "explain": "前面的条件都不成立，所以程序走了 else 分支（else:）。"
+              },
+              {
+                "label": "else:",
+                "taken": true,
+                "dead": false,
+                "explain": "前面的条件都不成立，所以程序走了 else 分支（else:）。"
+              }
+            ],
+            "explain": "前面的条件都不成立，所以程序走了 else 分支（else:）。"
+          }
+        ]
+      }
+    },
+    {
+      "id": "b06",
+      "title": "老路新走",
+      "tip": "嵌套 + 多分支混在一起，别走岔。",
+      "code": [
+        "t = 82",
+        "if t >= 90:",
+        "    rank = \"A\"",
+        "elif t >= 80:",
+        "    if t == 82:",
+        "        rank = \"B+\"",
+        "    else:",
+        "        rank = \"B\"",
+        "else:",
+        "    rank = \"C\"",
+        "print(rank)"
+      ],
+      "steps": [
+        {
+          "line": 0,
+          "vars": {
+            "t": "82"
+          },
+          "out": 0,
+          "next": 1
+        },
+        {
+          "line": 1,
+          "vars": {
+            "t": "82"
+          },
+          "out": 0,
+          "cond": false,
+          "next": 3
+        },
+        {
+          "line": 3,
+          "vars": {
+            "t": "82"
+          },
+          "out": 0,
+          "cond": true,
+          "next": 4
+        },
+        {
+          "line": 4,
+          "vars": {
+            "t": "82"
+          },
+          "out": 0,
+          "cond": true,
+          "next": 5
+        },
+        {
+          "line": 5,
+          "vars": {
+            "rank": "'B+'",
+            "t": "82"
+          },
+          "out": 0,
+          "next": 10
+        },
+        {
+          "line": 10,
+          "vars": {
+            "rank": "'B+'",
+            "t": "82"
+          },
+          "out": 1
+        }
+      ],
+      "timer": {
+        "base": 12,
+        "per": 20
+      },
+      "map": {
+        "rows": [
+          "S................G",
+          "##......#..oo..###",
+          "##..oo..#......###",
+          "##......##########"
+        ],
+        "cols": 18,
+        "regions": [
+          {
+            "line": 1,
+            "lc": 2,
+            "rc": 7,
+            "branches": [
+              {
+                "label": "if t >= 90:",
+                "taken": false,
+                "dead": true,
+                "explain": "条件 elif t >= 80: 为 真(True)，所以程序走进这条分支（elif t >= 80:）。"
+              },
+              {
+                "label": "elif t >= 80:",
+                "taken": true,
+                "dead": false,
+                "explain": "条件 elif t >= 80: 为 真(True)，所以程序走进这条分支（elif t >= 80:）。"
+              },
+              {
+                "label": "else:",
+                "taken": false,
+                "dead": true,
+                "explain": "条件 elif t >= 80: 为 真(True)，所以程序走进这条分支（elif t >= 80:）。"
+              }
+            ],
+            "explain": "条件 elif t >= 80: 为 真(True)，所以程序走进这条分支（elif t >= 80:）。"
+          },
+          {
+            "line": 4,
+            "lc": 9,
+            "rc": 14,
+            "branches": [
+              {
+                "label": "if t == 82:",
+                "taken": true,
+                "dead": false,
+                "explain": "条件 if t == 82: 为 真(True)，所以程序走进这条分支（if t == 82:）。"
+              },
+              {
+                "label": "else:",
+                "taken": false,
+                "dead": true,
+                "explain": "条件 if t == 82: 为 真(True)，所以程序走进这条分支（if t == 82:）。"
+              }
+            ],
+            "explain": "条件 if t == 82: 为 真(True)，所以程序走进这条分支（if t == 82:）。"
+          }
+        ]
+      }
+    }
+  ]
+}

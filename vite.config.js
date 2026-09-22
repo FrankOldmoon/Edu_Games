@@ -126,6 +126,7 @@ export default defineConfig({
         "robot": resolve("games/robot/index.html"),
         "typing": resolve("games/typing/index.html"),
         "trace": resolve("games/trace/index.html"),
+        "branch-trace": resolve("games/branch-trace/index.html"),
         "operator-sorter": resolve("games/operator-sorter/html/index.html"),
         "operator-sorter-embed": resolve("games/operator-sorter/html/embed-demo.html"),
         "spot-the-difference": resolve("games/spot-the-difference/index.html"),

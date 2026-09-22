@@ -43,19 +43,48 @@ def trace_of(code, filename="<lv>"):
 
     值一律用 repr：字符串会带引号（'Py'）、列表带方括号（[0, 2]）——
     这正是要让学生看见的东西（"这是个字符串" / "这是个列表"）。
+
+    分支地牢（Branch Dungeon）还要用到两个额外字段：
+      · "next"：这一步执行完之后，紧接着要执行的是第几行（0 起）；程序走到尾声为 null。
+        判断"走的是哪条分支"靠它——条件行执行完进入的最近下一行就是被选中的那个分支的体内。
+      · "cond"：当这一步恰好是 if/elif/while 的条件行时，给出该条件本次执行的布尔真值；
+        否则省略。判定"条件真假"这类题靠它。靠源码文本 + 当前作用域 eval 求值。
     """
     text = "\n".join(code) if isinstance(code, (list, tuple)) else str(code)
+    src = code if isinstance(code, (list, tuple)) else text.splitlines()
     steps = []
     buf = io.StringIO()
+    scope = {"__name__": "__main__"}
     # 每个帧各挂一个"上一行"。不能共用一个标量：一进函数体，
     # 被调用的帧会把调用方那一行顶掉，出来的一步就张冠李戴了。
     pending = {}
 
-    def emit(line, variables):
+    def header_cond(line, frame):
+        """line 若是 if/elif/while 条件行，返回它的布尔真值；否则返回 None。"""
+        raw = src[line] if 0 <= line < len(src) else ""
+        s = raw.strip()
+        m = re.match(r"^(if|elif|while)\b", s)
+        if not m:
+            return None
+        after = s[m.end():]
+        if "#" in after:
+            after = after.split("#", 1)[0]
+        expr = after.rstrip().rstrip(":")
+        try:
+            return bool(eval(expr, scope, frame.f_locals))
+        except Exception:
+            return None
+
+    def emit(line, variables, cond=None, next_line=None):
         if len(steps) >= MAX_STEPS:
             raise TooLong("超过 %d 步就停下了 —— 检查一下有没有停不下来的循环" % MAX_STEPS)
         # 此刻 buf 里已有的行数 = 到这一步为止程序打印了几行
-        steps.append({"line": line, "vars": variables, "out": buf.getvalue().count("\n")})
+        step = {"line": line, "vars": variables, "out": buf.getvalue().count("\n")}
+        if cond is not None:
+            step["cond"] = cond
+        if next_line is not None:
+            step["next"] = next_line
+        steps.append(step)
 
     def hook(frame, event, arg):
         # 别人的帧（print、range 内部）不管
@@ -66,20 +95,24 @@ def trace_of(code, filename="<lv>"):
             pending[fid] = None
             return hook
         if event == "line":
-            # 上一个 line 事件记下的那一行，到这一刻才算"执行完了"
+            # 此刻正要执行的是第 cur 行；上一个 line 事件记下的那一行到这一刻算"执行完了"，
+            # 它的"下一步"就是 cur。
+            cur = frame.f_lineno - 1
             if pending.get(fid) is not None:
-                emit(pending[fid], _locals(frame))
-            pending[fid] = frame.f_lineno - 1
+                emit(pending[fid]["line"], _locals(frame),
+                     cond=pending[fid]["cond"], next_line=cur)
+            # 把 cur 挂起，它的条件真假在"执行前"这一刻（frame 里还是旧值）就能定
+            pending[fid] = {"line": cur, "cond": header_cond(cur, frame)}
             return hook
         if event == "return":
-            # 这一帧的收尾：最后一行跑完了，用退出时的作用域补上
+            # 这一帧的收尾：最后一行跑完了，用退出时的作用域补上，没有"下一步"了
             if pending.get(fid) is not None:
-                emit(pending[fid], _locals(frame))
+                emit(pending[fid]["line"], _locals(frame),
+                     cond=pending[fid]["cond"], next_line=None)
             pending.pop(fid, None)
             return hook
         return hook
 
-    scope = {"__name__": "__main__"}
     sys.settrace(hook)
     try:
         with contextlib.redirect_stdout(buf):
