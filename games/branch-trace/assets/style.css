@@ -127,8 +127,68 @@
 .coinsline { font-size: 13px; }
 .coinsline b { color: var(--gold); font-size: 15px; }
 
-/* 代码面板：只高亮"现在轮到哪个岔路口的头部" */
-.codecard .code { font-size: 12.5px; max-height: 240px; overflow: auto; }
+/* 代码面板：只高亮"现在轮到哪个岔路口的头部"，缩进靠 white-space 保住 */
+.codecard .code {
+  font-size: 13px; line-height: 1.9;
+  max-height: 260px; overflow: auto;
+}
+.codecard .code .ln {
+  display: flex; gap: 12px;
+  border-left: 3px solid transparent;
+  border-radius: 6px; padding: 0 8px;
+  transition: background .15s, border-color .15s, color .15s;
+}
+.codecard .code .no { flex: none; width: 2ch; text-align: right; color: var(--dim-2); user-select: none; }
+.codecard .code .src { white-space: pre; color: var(--text); }
+.codecard .code .ln.ran .src { color: var(--dim); }
+.codecard .code .ln.ran .src * { color: var(--dim); }
+.codecard .code .ln.now {
+  border-left-color: var(--accent);
+  background: rgba(74, 124, 255, .12);
+}
+.codecard .code .ln.now .no { color: var(--accent); font-weight: 700; }
+
+/* highlight.js 配色：跟着主题 token 走，亮色/暗色都成立（不引第三方主题） */
+.codecard .code .hljs-keyword,
+.codecard .code .hljs-built_in,
+.codecard .code .hljs-literal,
+.codecard .code .hljs-type,
+.codecard .code .hljs-title.class_,
+.codecard .code .hljs-title.function_ { color: var(--accent); }
+.codecard .code .hljs-string,
+.codecard .code .hljs-regexp { color: var(--green); }
+.codecard .code .hljs-comment { color: var(--dim); font-style: italic; }
+.codecard .code .hljs-number { color: var(--gold); }
+.codecard .code .hljs-operator,
+.codecard .code .hljs-punctuation { color: var(--text); }
+
+/* 局内的玩法说明（棋盘上方一条） */
+.stagenote {
+  margin: 0 0 12px;
+  font-size: 13px; line-height: 1.7;
+  color: var(--text);
+  background: #edf3ff;
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--accent);
+  border-radius: 10px; padding: 10px 14px;
+}
+.stagenote u { text-decoration-color: var(--accent); }
+
+/* 首页「怎么玩」（可折叠） */
+details.howto {
+  margin: 4px 0 18px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 12px; padding: 10px 14px;
+}
+details.howto summary {
+  cursor: pointer; font-weight: 600; color: var(--text);
+  font-size: 14px; user-select: none;
+}
+details.howto[open] summary { margin-bottom: 8px; }
+details.howto #howtoBody p {
+  margin: 6px 0; font-size: 13.5px; line-height: 1.8; color: var(--text);
+}
 
 /* 移动提示 */
 .movehint { font-size: 12px; color: var(--dim); }

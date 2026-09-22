@@ -9,6 +9,8 @@
      弹回岔口、扣时，并把那条死分支标灰 + 讲清楚为什么不是它。
    · 没走完当前岔口时主干道被顶住，角色必须下到走廊里选 —— 逼你做人而不是绕过去。 */
 
+import hljs from "highlight.js";
+
 function esc(s) {
   return String(s === undefined || s === null ? "" : s)
     .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
@@ -153,6 +155,10 @@ function createDungeon(opts) {
   dungeon.className = "dungeon";
 
   const boardArea = document.createElement("div");
+  const note = document.createElement("p");
+  note.className = "stagenote";
+  note.innerHTML = t("ui.stageNote");
+  boardArea.appendChild(note);
   const board = document.createElement("div");
   board.className = "board";
   boardArea.appendChild(board);
@@ -260,10 +266,25 @@ function createDungeon(opts) {
     const doneLines = {};
     for (let i = 0; i < solved && i < rooms.length; i++) doneLines[rooms[i].line] = true;
     const cur = curRegion();
+
+    /* 整段一起高亮（跨行的字符串/注释不会被拆坏），再按行切回每行一个 row */
+    let hl = "";
+    try {
+      hl = hljs.highlight(code.join("\n"), { language: "python" }).value;
+    } catch (e) {
+      hl = "";
+    }
+    let hlLines = hl.split("\n");
+    if (hlLines.length < code.length) {
+      while (hlLines.length < code.length) hlLines.push("");
+    }
+    if (hlLines.length > code.length) hlLines = hlLines.slice(0, code.length);
+
     codeCard.querySelector(".code").innerHTML = code.map(function (src, li) {
       const cls = doneLines[li] ? "ln ran" : (cur && cur.line === li ? "ln now" : "ln");
+      const body = src === "" ? " " : hlLines[li];
       return "<div class=\"" + cls + "\"><span class=\"no\">" + (li + 1) + "</span>" +
-        "<span class=\"src\">" + esc(src === "" ? " " : src) + "</span></div>";
+        "<span class=\"src\">" + body + "</span></div>";
     }).join("");
   }
 
@@ -275,6 +296,7 @@ function createDungeon(opts) {
 
   function relocalize() {
     mv.textContent = t("ui.moveHint");
+    note.innerHTML = t("ui.stageNote");
     varCard.innerHTML = "<h4>" + esc(t("ui.vars")) + "</h4><div class=\"vars\"></div>";
     codeCard.innerHTML = "<h4>" + esc(t("ui.codeTitle")) + "</h4><div class=\"code\"></div>";
     draw();

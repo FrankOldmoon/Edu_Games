@@ -331,8 +331,6 @@ def build():
                 b["explain"] = m["explain"]
         entry = {
             "id": lv["id"],
-            "title": lv["title"],
-            "tip": lv["tip"],
             "code": code,
             "steps": steps,
             "timer": dict(TIMER),
@@ -362,8 +360,8 @@ def main():
         f.write("\n")
     print("写了 %s" % os.path.relpath(path))
     for lv in levels:
-        print("\n  %s %s —— %d 个岔口, %d 行代码" % (
-        lv["id"], lv["title"], len(lv["map"]["regions"]), len(lv["code"])))
+        print("\n  %s —— %d 个岔口, %d 行代码" % (
+        lv["id"], len(lv["map"]["regions"]), len(lv["code"])))
         for r in lv["map"]["rows"]:
             print("    " + r)
         for rg in lv["map"]["regions"]:

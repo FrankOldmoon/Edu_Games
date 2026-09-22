@@ -107,6 +107,8 @@ function show(view) { document.body.dataset.view = view; }
 function renderList() {
   el("lead").innerHTML = t("ui.lead");
   el("progText").textContent = t("ui.progress", { done: prog.count(), total: levels.length });
+  const hp = t("ui.howto").split("\n");
+  el("howtoBody").innerHTML = hp.map(function (l) { return "<p>" + l + "</p>"; }).join("");
 
   renderLevelList({
     host: el("levels"),

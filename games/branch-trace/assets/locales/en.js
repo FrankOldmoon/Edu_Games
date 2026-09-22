@@ -7,7 +7,11 @@ export default {
 
     lead: "No more multiple choice — you control a little explorer inside a dungeon. Every fork is a line of <b>if / elif / else</b> and the program only walks one branch. Use the <b>current variable values</b> above to decide which branch it takes, then move your character into that corridor. Walk the right path and you collect coins & advance; step into a dead branch's trap and you lose time — but you'll see why it wasn't the one taken.",
     moveHint: "Move with arrow keys / WASD, or tap the cell you want to go to.",
-    gateNote: "Current fork — which corridor does the program take?",
+    gateNote: "Current fork — which branch does the program take?",
+    stageNote: "Read the code on the left (<u>highlighted</u> line is the if/elif/else being decided) plus the current variables on the right, judge which branch runs, and walk the character into that corridor. Right path → pick up coins & advance; wrong path → step on a trap & lose time.",
+
+    howtoTitle: "❓ How to play",
+    howto: "You are the interpreter — each fork is an if/elif/else.\n1. Look at the current variable values on the right (what the variables are when the program gets here).\n2. The highlighted line in the code on the left is the decision you're making now.\n3. Each corridor stands for one branch — walk your character into the one the program actually takes.\n4. Right path → grab coins and move on to the next fork.\n5. Wrong path → the dead corridor's trap bounces you back, −5s, and tells you why it wasn't the one taken.\n6. Reach the ★ at the far right = the program finished = level complete!",
 
     progress: "Cleared {done} / {total}",
     levelNo: "Level {n}",
