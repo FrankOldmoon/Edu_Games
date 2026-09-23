@@ -258,6 +258,7 @@ function typeChunk(chunk) {
     finishRun();
     return;
   }
+  reportRoomLevelCleared();     /* 房间模式也每过一关就上报 correct_rate（不只是整局结束） */
   run.advancing = true;
   armAdvanceWatchdog();
   el("hint").innerHTML = t("ui.levelCleared");
@@ -644,6 +645,31 @@ function markRoomLevelDone(index) {
   const lv = levels[index];
   if (!lv || !prog) return;
   if (prog.mark(lv.id)) renderList();     /* 第一次通关才重画列表 */
+}
+
+/* 房间里每过完一关，也像单人一次上报 correct_rate —— 不然只有整局全打完才上报，
+   课程/题库在"过完这一关"时（那是房间里的中间关）就收不到。rate 仍按课程完成度
+   （每关 20%，满 5 关 = 1），levelRate 是本关正确率。 */
+function reportRoomLevelCleared() {
+  if (!run || !net || !run.playing) return;
+  const lv = levels[run.myLevel];
+  if (!lv) return;
+  markRoomLevelDone(run.myLevel);        /* 先 mark，courseRate 才把这关算进去 */
+  reportCorrectRate(GAME_ID, {
+    level: run.myLevel + 1,
+    levelId: lv.id,
+    levelTitle: lvText(lv, "title"),
+    correct: stats.hits,
+    total: stats.keys,
+    rate: courseRate(prog.count()),
+    levelRate: stats.keys ? stats.hits / stats.keys : 1,
+    progress: prog.ratio(),
+    finished: run.myLevel >= run.lastLevel,
+    timedOut: false,
+    locale: i18n.getLocale(),
+    mode: "room",
+    room: run.code,
+  });
 }
 
 /* 大堂里先把第一关摊开给你看：代码看得见、但还不能敲 */
