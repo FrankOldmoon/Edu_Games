@@ -8,7 +8,7 @@ import bank from "../levels.json";
 import en from "./locales/en.js";
 import zhCN from "./locales/zh-CN.js";
 import { i18n, t, mountSwitcher } from "./i18n.js";
-import { params, createProgress, startIndex, loadBank, reportResult } from "../../../src/game-ui/progress.js";
+import { params, createProgress, startIndex, loadBank, reportCorrectRate, courseRate } from "../../../src/game-ui/progress.js";
 import { celebrate, isCelebrating } from "../../../src/game-ui/feedback.js";
 import { createCountdown, limitMs, formatClock } from "../../../src/game-ui/timer.js";
 import { renderLevelList } from "../../../src/game-ui/levels-ui.js";
@@ -249,13 +249,14 @@ function win() {
 
   el("board").classList.remove("failed");
   prog.mark(game.level.id);
-  reportResult(GAME_ID, {
+  reportCorrectRate(GAME_ID, {
     level: index + 1,
     levelId: game.level.id,
     levelTitle: lvText(game.level, "title"),
     correct: pairs,
     total: pairs,
-    rate: 1,
+    rate: courseRate(prog.count()),
+    levelRate: 1,
     progress: prog.ratio(),
     finished: last,
     timedOut: false,
@@ -314,13 +315,14 @@ function timeUp() {
   syncCards();
   paintGameChrome();
   reportProgress();          /* 时间到也是当前的进度，服务器照它记着 */
-  reportResult(GAME_ID, {
+  reportCorrectRate(GAME_ID, {
     level: game.index + 1,
     levelId: game.level.id,
     levelTitle: lvText(game.level, "title"),
     correct: game.matchedCount,
     total: (game.level.pairs || []).length,
-    rate: game.matchedCount / Math.max(1, (game.level.pairs || []).length),
+    rate: courseRate(prog.count()),
+    levelRate: game.matchedCount / Math.max(1, (game.level.pairs || []).length),
     progress: prog.ratio(),
     finished: false,
     timedOut: true,

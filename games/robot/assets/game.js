@@ -7,7 +7,7 @@ import bank from "../levels.json";
 import en from "./locales/en.js";
 import zhCN from "./locales/zh-CN.js";
 import { i18n, t, mountSwitcher } from "./i18n.js";
-import { params, createProgress, startIndex, loadBank, reportResult } from "../../../src/game-ui/progress.js";
+import { params, createProgress, startIndex, loadBank, reportCorrectRate, courseRate } from "../../../src/game-ui/progress.js";
 import { celebrate, isCelebrating } from "../../../src/game-ui/feedback.js";
 import { createCountdown, limitMs, formatClock } from "../../../src/game-ui/timer.js";
 import { renderLevelList } from "../../../src/game-ui/levels-ui.js";
@@ -487,13 +487,14 @@ function win() {
   document.querySelector(".wrap").classList.remove("failed");
   prog.mark(game.level.id);
   reportProgress();
-  reportResult(GAME_ID, {
+  reportCorrectRate(GAME_ID, {
     level: index + 1,
     levelId: game.level.id,
     levelTitle: lvText(game.level, "title"),
     correct: best,
     total: steps,
-    rate: Math.min(1, best / steps),
+    rate: courseRate(prog.count()),
+    levelRate: Math.min(1, best / steps),
     progress: prog.ratio(),
     finished: last,
     timedOut: false,
@@ -529,13 +530,14 @@ function timeUp() {
   setControlsEnabled(false);
   document.querySelector(".wrap").classList.add("failed");
   setStatus("ui.timeUp");
-  reportResult(GAME_ID, {
+  reportCorrectRate(GAME_ID, {
     level: game.index + 1,
     levelId: game.level.id,
     levelTitle: lvText(game.level, "title"),
     correct: 0,
     total: game.level.max || 0,
-    rate: 0,
+    rate: courseRate(prog.count()),
+    levelRate: 0,
     progress: prog.ratio(),
     finished: false,
     timedOut: true,

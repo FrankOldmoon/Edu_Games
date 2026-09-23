@@ -21,7 +21,7 @@ import bank from "../levels.json";
 import en from "./locales/en.js";
 import zhCN from "./locales/zh-CN.js";
 import { i18n, t, mountSwitcher } from "./i18n.js";
-import { params, createProgress, startIndex, loadBank, reportResult } from "../../../src/game-ui/progress.js";
+import { params, createProgress, startIndex, loadBank, reportCorrectRate, courseRate } from "../../../src/game-ui/progress.js";
 import { celebrate, isCelebrating } from "../../../src/game-ui/feedback.js";
 import { createBar, createStopwatch, formatElapsed } from "../../../src/game-ui/timer.js";
 import { renderLevelList } from "../../../src/game-ui/levels-ui.js";
@@ -390,13 +390,14 @@ function win() {
   const speed = Math.round((chars / 5) / (seconds / 60));
 
   prog.mark(solo.level.id);
-  reportResult(GAME_ID, {
+  reportCorrectRate(GAME_ID, {
     level: index + 1,
     levelId: solo.level.id,
     levelTitle: lvText(solo.level, "title"),
     correct: stats.hits,
     total: stats.keys,
-    rate: stats.keys ? stats.hits / stats.keys : 1,
+    rate: courseRate(prog.count()),
+    levelRate: stats.keys ? stats.hits / stats.keys : 1,
     progress: prog.ratio(),
     finished: last,
     timedOut: false,
@@ -805,13 +806,14 @@ function showRunResult() {
   const stars = errors === 0 ? 3 : errors <= 2 ? 2 : 1;
   const lastId = st.levelIds[run.myLevel];
 
-  reportResult(GAME_ID, {
+  reportCorrectRate(GAME_ID, {
     level: levelNoById(lastId),
     levelId: lastId,
     levelTitle: levelTitleById(lastId),
     correct: stats.hits,
     total: stats.keys,
-    rate: stats.keys ? stats.hits / stats.keys : 1,
+    rate: courseRate(prog.count()),
+    levelRate: stats.keys ? stats.hits / stats.keys : 1,
     progress: prog.ratio(),
     finished: true,
     timedOut: false,
