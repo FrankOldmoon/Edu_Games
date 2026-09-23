@@ -20,7 +20,7 @@ import zhCN from "./locales/zh-CN.js";
    一份代码两个身份，免得两边的追踪逻辑漂移。 */
 import tracerSrc from "../../../tools/pytrace.py?raw";
 import { i18n, t, mountSwitcher } from "./i18n.js";
-import { params, createProgress, startIndex, loadBank, reportCorrectRate } from "../../../src/game-ui/progress.js";
+import { params, createProgress, startIndex, loadBank, reportCorrectRate, courseRate } from "../../../src/game-ui/progress.js";
 import { celebrate, isCelebrating } from "../../../src/game-ui/feedback.js";
 import { createCountdown, limitMs, formatClock } from "../../../src/game-ui/timer.js";
 import { renderLevelList } from "../../../src/game-ui/levels-ui.js";
@@ -463,8 +463,8 @@ function finish() {
     levelTitle: imported ? "" : lvText(game.level, "title"),
     correct: ok,
     total: total,
-    rate: imported ? 0 : rate(),
-    levelRate: imported ? 0 : rate(),
+    rate: courseRate(prog.count()),   /* 课程完成度：每关 20%，过 5 关到 1 */
+    levelRate: rate(),                /* 本关正确率，供参考 */
     progress: prog.ratio(),
     finished: last,
     timedOut: false,
@@ -528,8 +528,8 @@ function timeUp() {
     levelTitle: game.index < 0 ? "" : lvText(game.level, "title"),
     correct: game.correct,
     total: game.totalQ,
-    rate: game.index < 0 ? 0 : rate(),
-    levelRate: game.index < 0 ? 0 : rate(),
+    rate: courseRate(prog.count()),
+    levelRate: rate(),
     progress: prog.ratio(),
     finished: false,
     timedOut: true,

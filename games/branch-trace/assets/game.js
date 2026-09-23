@@ -12,7 +12,7 @@ import bank from "../levels.json";
 import en from "./locales/en.js";
 import zhCN from "./locales/zh-CN.js";
 import { i18n, t, mountSwitcher } from "./i18n.js";
-import { params, createProgress, startIndex, loadBank, reportCorrectRate } from "../../../src/game-ui/progress.js";
+import { params, createProgress, startIndex, loadBank, reportCorrectRate, courseRate } from "../../../src/game-ui/progress.js";
 import { celebrate, isCelebrating } from "../../../src/game-ui/feedback.js";
 import { createCountdown, limitMs, formatClock } from "../../../src/game-ui/timer.js";
 import { renderLevelList } from "../../../src/game-ui/levels-ui.js";
@@ -206,8 +206,8 @@ function finish() {
     levelTitle: imported ? "" : lvText(lv, "title"),
     correct: ok,
     total: total,
-    rate: imported ? 0 : rate(),
-    levelRate: imported ? 0 : rate(),
+    rate: courseRate(prog.count()),   /* 课程完成度：每关 20%，过 5 关到 1 */
+    levelRate: rate(),                /* 本关正确率，供参考 */
     progress: prog.ratio(),
     finished: last,
     timedOut: false,

@@ -116,9 +116,9 @@ export function reportResult(gameId, payload) {
   return msg;
 }
 
-/* 另一路上报：对齐 operator-sorter 的 `correct_rate` 契约。
+/* 另一路上报：对齐 operator-sorter / spot-the-difference 的 `correct_rate` 契约。
    宿主页（如 LMS）只认 `correct_rate` 时用这一路；deck 填游戏 id。
-   rate 的语义由调用方定（推荐本关正确率），levelRate 通常与 rate 相同。 */
+   rate 建议用下方 courseRate() 算"课程完成度"（每关 20%，5 关到 1）。 */
 export function reportCorrectRate(gameId, payload) {
   const msg = Object.assign({ type: "correct_rate", deck: gameId, game: gameId }, payload);
   try {
@@ -128,4 +128,10 @@ export function reportCorrectRate(gameId, payload) {
     window.dispatchEvent(new CustomEvent(gameId + ":correct", { detail: msg }));
   } catch (e) { /* ignore */ }
   return msg;
+}
+
+/* "课程完成度"：每关固定加分（默认 5 关，每关 20%），过满 cap 封顶 1。
+   清掉 = 走过并且 mark 过的关卡数（累计，刷新不丢）。 */
+export function courseRate(cleared, cap = 5) {
+  return Math.round(Math.min(1, cleared / cap) * 100) / 100;
 }
