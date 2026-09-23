@@ -115,3 +115,17 @@ export function reportResult(gameId, payload) {
   } catch (e) { /* ignore */ }
   return msg;
 }
+
+/* 另一路上报：对齐 operator-sorter 的 `correct_rate` 契约。
+   宿主页（如 LMS）只认 `correct_rate` 时用这一路；deck 填游戏 id。
+   rate 的语义由调用方定（推荐本关正确率），levelRate 通常与 rate 相同。 */
+export function reportCorrectRate(gameId, payload) {
+  const msg = Object.assign({ type: "correct_rate", deck: gameId, game: gameId }, payload);
+  try {
+    if (window.parent && window.parent !== window) window.parent.postMessage(msg, "*");
+  } catch (e) { /* 跨域就只发本地事件 */ }
+  try {
+    window.dispatchEvent(new CustomEvent(gameId + ":correct", { detail: msg }));
+  } catch (e) { /* ignore */ }
+  return msg;
+}

@@ -20,7 +20,7 @@ import zhCN from "./locales/zh-CN.js";
    一份代码两个身份，免得两边的追踪逻辑漂移。 */
 import tracerSrc from "../../../tools/pytrace.py?raw";
 import { i18n, t, mountSwitcher } from "./i18n.js";
-import { params, createProgress, startIndex, loadBank, reportResult } from "../../../src/game-ui/progress.js";
+import { params, createProgress, startIndex, loadBank, reportCorrectRate } from "../../../src/game-ui/progress.js";
 import { celebrate, isCelebrating } from "../../../src/game-ui/feedback.js";
 import { createCountdown, limitMs, formatClock } from "../../../src/game-ui/timer.js";
 import { renderLevelList } from "../../../src/game-ui/levels-ui.js";
@@ -457,13 +457,14 @@ function finish() {
 
   el("work").classList.remove("failed");
   if (!imported) prog.mark(game.level.id);
-  reportResult(GAME_ID, {
+  reportCorrectRate(GAME_ID, {
     level: imported ? 0 : index + 1,
     levelId: imported ? "__imported__" : game.level.id,
     levelTitle: imported ? "" : lvText(game.level, "title"),
     correct: ok,
     total: total,
     rate: imported ? 0 : rate(),
+    levelRate: imported ? 0 : rate(),
     progress: prog.ratio(),
     finished: last,
     timedOut: false,
@@ -521,13 +522,14 @@ function timeUp() {
   afterRender();
   reportProgress();          /* 房间里：超时也是当前进度，照它记着 */
   el("work").classList.add("failed");
-  reportResult(GAME_ID, {
+  reportCorrectRate(GAME_ID, {
     level: game.index < 0 ? 0 : game.index + 1,
     levelId: game.index < 0 ? "__imported__" : game.level.id,
     levelTitle: game.index < 0 ? "" : lvText(game.level, "title"),
     correct: game.correct,
     total: game.totalQ,
     rate: game.index < 0 ? 0 : rate(),
+    levelRate: game.index < 0 ? 0 : rate(),
     progress: prog.ratio(),
     finished: false,
     timedOut: true,

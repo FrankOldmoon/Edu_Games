@@ -12,7 +12,7 @@ import bank from "../levels.json";
 import en from "./locales/en.js";
 import zhCN from "./locales/zh-CN.js";
 import { i18n, t, mountSwitcher } from "./i18n.js";
-import { params, createProgress, startIndex, loadBank, reportResult } from "../../../src/game-ui/progress.js";
+import { params, createProgress, startIndex, loadBank, reportCorrectRate } from "../../../src/game-ui/progress.js";
 import { celebrate, isCelebrating } from "../../../src/game-ui/feedback.js";
 import { createCountdown, limitMs, formatClock } from "../../../src/game-ui/timer.js";
 import { renderLevelList } from "../../../src/game-ui/levels-ui.js";
@@ -200,13 +200,14 @@ function finish() {
 
   el("work").classList.remove("failed");
   if (!imported) prog.mark(lv.id);
-  reportResult(GAME_ID, {
+  reportCorrectRate(GAME_ID, {
     level: imported ? 0 : index + 1,
     levelId: imported ? "__imported__" : lv.id,
     levelTitle: imported ? "" : lvText(lv, "title"),
     correct: ok,
     total: total,
     rate: imported ? 0 : rate(),
+    levelRate: imported ? 0 : rate(),
     progress: prog.ratio(),
     finished: last,
     timedOut: false,
