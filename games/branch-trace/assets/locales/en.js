@@ -1,17 +1,15 @@
-/* Python Branch Dungeon — English (default & fallback). */
+/* Python Branch Dungeon (new: program-assembly maze) — English (default & fallback). */
 
 export default {
   ui: {
     appTitle: "Python Branch Dungeon",
-    backToSite: "← All games",
 
-    lead: "No more multiple choice — you control a little explorer inside a dungeon. Every fork is a line of <b>if / elif / else</b> and the program only walks one branch. Use the <b>current variable values</b> above to decide which branch it takes, then move your character into that corridor. Walk the right path and you collect coins & advance; step into a dead branch's trap and you lose time — but you'll see why it wasn't the one taken.",
-    moveHint: "Move with arrow keys / WASD, or tap the cell you want to go to.",
-    gateNote: "Current fork — which branch does the program take?",
-    stageNote: "Read the code on the left (<u>highlighted</u> line is the if/elif/else being decided) plus the current variables on the right, judge which branch runs, and walk the character into that corridor. Right path → pick up coins & advance; wrong path → step on a trap & lose time.",
+    lead: "This is a program for you to assemble. A little explorer stands at the maze start, holding an <b>if / elif / else</b> branch block (maze-sensing: is there a path ahead / left / right) plus some <b>forward / left / right</b> move blocks. Snap blocks into a program that walks the explorer to the ★ exit, then hit <b>Run</b> and let it walk. Reach the exit = level complete.",
+    moveHint: "Click a tile to add it to the program; drag to reorder; Enter to run, Backspace to undo the last tile.",
+    stageNote: "Look at the maze and the starting heading. Snap <b>if/elif/else</b> sensing blocks and <b>forward / left / right</b> move blocks into a program, hit <b>Run</b>, and the explorer walks by itself. Reach the <b>★</b> without bumping a wall to win.",
 
     howtoTitle: "❓ How to play",
-    howto: "You are the interpreter — each fork is an if/elif/else.\n1. Look at the current variable values on the right (what the variables are when the program gets here).\n2. The highlighted line in the code on the left is the decision you're making now.\n3. Each corridor stands for one branch — walk your character into the one the program actually takes.\n4. Right path → grab coins and move on to the next fork.\n5. Wrong path → the dead corridor's trap bounces you back, −5s, and tells you why it wasn't the one taken.\n6. Reach the ★ at the far right = the program finished = level complete!",
+    howto: "1. The right panel lists this level's tiles: an if/elif/else sensing block + Forward (F) / Left (L) / Right (R) moves.\n2. Tap a tile to add it to “My program” below; drag to reorder, tap ✕ to remove.\n3. Hit Run — the program plays top to bottom and the explorer moves accordingly.\n4. Whether there's a path ahead/left/right is read from the maze <b>at the moment the if block runs</b>.\n5. Hitting a wall = wrong program, −5s; tweak the tiles and try again.\n6. Reach the ★ = the program works = level complete!",
 
     progress: "Cleared {done} / {total}",
     levelNo: "Level {n}",
@@ -29,17 +27,36 @@ export default {
     timeUp: "Time's up",
     timeUpShort: "Time up",
 
-    coins: "Coins {n}",
-    vars: "Current variables",
-    codeTitle: "This program",
+    palette: "Tiles",
+    yourProgram: "My program",
+    programEmpty: "Tap tiles above to add…",
+    run: "▶ Run",
+    clear: "Clear",
+    remove: "Remove this tile",
+    problem: "Sensing conditions",
+    problemText: "The if condition reads the maze around the explorer (by its heading):",
 
-    trap: "Trap!",
-    trapLine: "This branch never runs — {explain}",
+    if: "if",
+    else: "else",
 
+    F: "Fwd", L: "Left", R: "Right",
+
+    predFrontOpen: "ahead open?",
+    predFrontWall: "ahead wall?",
+    predLeftOpen: "left open?",
+    predLeftWall: "left wall?",
+    predRightOpen: "right open?",
+    predRightWall: "right wall?",
+
+    bump: "Bumped a wall — wrong program, −5s. Tweak it and run again.",
+    goal: "Reached the exit — level complete!",
+    notGoal: "Program finished, but not at the ★ exit.",
+
+    attempts: "{n} tries",
     win: "You made it out!",
-    perfect: "Chose correctly first try at every fork",
-    partial: "First-try at {ok} of {total} forks",
-    winLine: "{regions} forks · {coins} coins · {time}",
+    perfect: "Cleared on the first run",
+    partial: "Cleared after {total} tries",
+    winLine: "{attempts} tries · {time}",
     next: "Next level →",
     allDone: "All done — back to the list",
 
@@ -54,11 +71,10 @@ export default {
   },
 
   levels: {
-    b01: { title: "Pass or Fail", tip: "Whether score qualifies decides the path." },
-    b02: { title: "Even or Odd", tip: "Even goes the if path, odd goes else." },
-    b03: { title: "Three Ways", tip: "elif checks in order; the first true one wins." },
-    b04: { title: "Door Within a Door", tip: "Judge the outer if first, then the inner one." },
-    b05: { title: "Extra Lock", tip: "and needs BOTH conditions to be True." },
-    b06: { title: "City Lights", tip: "Nesting + multiple branches — don't get lost." },
+    m01: { title: "Wall, Turn Right", tip: "ahead is a wall, turn right" },
+    m02: { title: "T Junction", tip: "no path ahead, go left" },
+    m03: { title: "Three Ways", tip: "no path left, walk ahead" },
+    m04: { title: "Through the Cul-de-sac", tip: "see a wall, turn left, hug it" },
+    m05: { title: "Nine Grid", tip: "sense every step, don't bump" },
   },
 };

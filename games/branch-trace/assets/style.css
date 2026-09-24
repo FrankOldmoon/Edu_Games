@@ -1,110 +1,75 @@
 @import "../../../src/game-ui/base.css";
 
 /* 关卡列表、顶栏、倒计时、报错、通关卡、.panel/.failed 全在 base.css 里。
-   这里只写分支地牢特有的东西：地牢画布 + HUD + 岔路口卡片 + 陷阱反馈。 */
+   这里只写分支地牢(新玩法)特有的东西：迷宫棋盘 + 角色 + 摆块/程序区。 */
 
 .work { width: 100%; }
 .body { transition: filter .3s; }
 
-/* 地牢那一块：白色面板里装画布 */
 .stagewrap { padding: 14px 14px 18px; }
 
-/* ------------------------------- 布局：左上画布 + 右侧信息 ------------------------------- */
+/* ------------------------------- 布局：左画布 + 右侧摆块 ------------------------------- */
 
 .dungeon {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 300px;
+  grid-template-columns: minmax(0, 1fr) 320px;
   gap: 16px;
   align-items: start;
 }
-@media (max-width: 860px) {
+@media (max-width: 900px) {
   .dungeon { grid-template-columns: minmax(0, 1fr); }
   .dungeon .side { order: -1; }
 }
 
-/* ------------------------------- 画布 ------------------------------- */
+/* ------------------------------- 棋盘（绝对定位棋子） ------------------------------- */
 
 .board {
-  font-family: var(--mono);
-  display: inline-block;
-  padding: 10px;
+  position: relative;
   background: var(--panel-2);
   border: 1px solid var(--line);
   border-radius: 12px;
-  resize: both; overflow: auto; max-width: 100%;
+  overflow: hidden;
 }
-.board[data-locked="1"] { resize: none; overflow: hidden; }
+.board[data-locked="1"] { cursor: default; }
 
-.board .row { display: flex; }
-
-.cell {
-  width: 34px; height: 34px;
-  display: flex; align-items: center; justify-content: center;
-  font-size: 20px; line-height: 1;
-  flex: none;
-  box-sizing: border-box;
-  border-radius: 6px;
-  transition: background .1s, box-shadow .1s;
-}
-/* 普通地板 / 道路 */
-.cell.floor { background: var(--panel-2); }
-/* 墙壁 */
-.cell.wall { background: transparent; }
-/* 路牌挂在这几个格子上：岔路口竖刺的位置 */
-.cell.dec {
-  background: #ede7ff;
-  color: var(--accent);
-  box-shadow: inset 0 0 0 2px var(--accent);
-}
-/* 站上去会踩陷阱的死路格子（首格）：平时跟地板一样，踩了才知道 */
-.cell.trap { background: var(--panel-2); }
-.cell.hold { background: #eaf6ff; box-shadow: inset 0 0 0 2px var(--blue); }
-/* 金币与目标 */
-.cell.coin { background: var(--panel-2); color: var(--gold); }
-.cell.goal { background: #eafff1; color: var(--green); box-shadow: inset 0 0 0 2px var(--green); }
-
-/* 角色 */
-.cell.player { font-size: 24px; }
-.cell .dot {
-  width: 20px; height: 20px; border-radius: 50%;
-  background: var(--accent);
-  box-shadow: 0 0 0 4px rgba(74, 124, 255, .22);
-  display: inline-block;
-}
-/* 用得着但别太显眼的提示角 */
-.cell .tag {
+.tile {
   position: absolute;
+  box-sizing: border-box;
+  display: flex; align-items: center; justify-content: center;
+  font-family: var(--mono);
+  font-size: 15px;
+}
+.tile.floor { background: var(--panel-2); }
+.tile.wall { background: rgba(0, 0, 0, .05); }
+
+/* 角色：外框定位格心，.body 旋转表示朝向（N ↑ / E → / S ↓ / W ←） */
+.robot {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  width: 30px; height: 30px;
+  display: flex; align-items: center; justify-content: center;
+}
+.robot .body {
+  width: 22px; height: 22px;
+  border-radius: 6px;
+  background: var(--accent);
+  box-shadow: 0 2px 6px rgba(74, 124, 255, .35);
+  transition: transform .15s;
+}
+.robot .body::after {
+  content: "";
+  position: absolute;
+  top: 2px; left: 50%;
+  transform: translateX(-50%);
+  width: 0; height: 0;
+  border-left: 5px solid transparent;
+  border-right: 5px solid transparent;
+  border-bottom: 9px solid #fff;
 }
 
-/* 岔路口卡片：列出当前这个 if/elif/else 的每条分支。
-   只标出"哪条是陷阱/踩错了"——正确那条绝不剧透。 */
-.gate {
-  margin-top: 14px;
-  padding: 14px 16px;
-  border: 1px solid var(--line);
-  border-radius: 12px;
-  background: var(--panel);
-}
-.gate .gateq { margin: 0 0 4px; font-size: 12px; color: var(--dim); letter-spacing: .4px; }
-.gate .branch { display: flex; align-items: center; gap: 8px; margin-top: 6px; }
-.gate .branch code {
-  font-family: var(--mono); font-size: 13px;
-  background: var(--panel-2); border: 1px solid var(--line);
-  border-radius: 6px; padding: 2px 8px;
-}
-.gate .branch.dead code { color: var(--dim-2); text-decoration: line-through; }
-.gate .branch .mark { color: var(--dim-2); font-size: 12px; }
-.gate .explain {
-  margin: 10px 0 0; padding: 8px 10px;
-  font-size: 12.5px; line-height: 1.6;
-  border-radius: 8px;
-  color: var(--red); background: rgba(239, 68, 68, .08);
-}
-.gate.done .gateq { color: var(--green); }
+/* ------------------------------- 右侧卡片 ------------------------------- */
 
-/* ------------------------------- 右侧信息 ------------------------------- */
-
-.side { display: grid; gap: 14px; }
+.side { display: grid; gap: 12px; }
 
 .card {
   padding: 12px 14px;
@@ -117,52 +82,80 @@
   color: var(--dim-2); letter-spacing: .5px; text-transform: uppercase;
 }
 
-/* 当前变量：逐键值列出，代码等宽，一眼看出谁变了 */
-.vars { display: grid; gap: 4px; font-family: var(--mono); font-size: 13px; }
-.vars .none { color: var(--dim-2); font-style: italic; }
-.vars .v { display: flex; justify-content: space-between; gap: 12px; }
-.vars .v b { color: var(--dim); font-weight: 500; }
-.vars .v span { color: var(--text); }
-
-.coinsline { font-size: 13px; }
-.coinsline b { color: var(--gold); font-size: 15px; }
-
-/* 代码面板：只高亮"现在轮到哪个岔路口的头部"，缩进靠 white-space 保住 */
-.codecard .code {
-  font-size: 13px; line-height: 1.9;
-  max-height: 260px; overflow: auto;
+/* 可用块池 */
+.palette {
+  display: flex; flex-wrap: wrap; gap: 8px;
+  min-height: 40px; align-content: flex-start;
 }
-.codecard .code .ln {
-  display: flex; gap: 12px;
-  border-left: 3px solid transparent;
-  border-radius: 6px; padding: 0 8px;
-  transition: background .15s, border-color .15s, color .15s;
-}
-.codecard .code .no { flex: none; width: 2ch; text-align: right; color: var(--dim-2); user-select: none; }
-.codecard .code .src { white-space: pre; color: var(--text); }
-.codecard .code .ln.ran .src { color: var(--dim); }
-.codecard .code .ln.ran .src * { color: var(--dim); }
-.codecard .code .ln.now {
-  border-left-color: var(--accent);
-  background: rgba(74, 124, 255, .12);
-}
-.codecard .code .ln.now .no { color: var(--accent); font-weight: 700; }
 
-/* highlight.js 配色：跟着主题 token 走，亮色/暗色都成立（不引第三方主题） */
-.codecard .code .hljs-keyword,
-.codecard .code .hljs-built_in,
-.codecard .code .hljs-literal,
-.codecard .code .hljs-type,
-.codecard .code .hljs-title.class_,
-.codecard .code .hljs-title.function_ { color: var(--accent); }
-.codecard .code .hljs-string,
-.codecard .code .hljs-regexp { color: var(--green); }
-.codecard .code .hljs-comment { color: var(--dim); font-style: italic; }
-.codecard .code .hljs-number { color: var(--gold); }
-.codecard .code .hljs-operator,
-.codecard .code .hljs-punctuation { color: var(--text); }
+/* 块 */
+.blk {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-family: var(--mono);
+  font-size: 13px;
+  background: var(--accent);
+  color: #fff;
+  border-radius: 8px;
+  padding: 4px 10px;
+  cursor: pointer;
+  user-select: none;
+  white-space: nowrap;
+}
+.blk b { font-weight: 700; }
+.blk .opicon { font-size: 12px; opacity: .9; }
+.blk .del {
+  background: none; border: none; color: rgba(255,255,255,.8);
+  cursor: pointer; font-size: 11px; padding: 0 0 0 2px;
+}
+.blk .del:hover { color: #fff; }
 
-/* 局内的玩法说明（棋盘上方一条） */
+.blk.chain {
+  flex-direction: column; align-items: stretch;
+  background: #6a5bd6;
+  gap: 4px;
+}
+.blk.chain > b.kw { font-weight: 700; }
+.blk.chain .then {
+  display: flex; flex-wrap: wrap; gap: 4px;
+}
+.blk.chain .kw.else { color: #ffd0a0; font-weight: 700; font-size: 12px; }
+
+/* 程序区 */
+.progcard .program {
+  display: flex; flex-direction: column; gap: 6px;
+  min-height: 48px;
+  border: 1px dashed var(--line);
+  border-radius: 8px; padding: 8px;
+}
+.progcard .program .empty { color: var(--dim-2); font-size: 13px; font-style: italic; }
+.progcard .slot {
+  display: flex; flex-direction: column;
+  cursor: grab;
+}
+.progcard .slot.drag { opacity: .4; }
+.progcard .slot .blk { cursor: grab; }
+
+.progbtns { display: flex; gap: 8px; margin-top: 10px; }
+.progbtns .btn { flex: 1; }
+
+.runstatus {
+  margin-top: 8px;
+  font-size: 13px; line-height: 1.5;
+}
+.runstatus.bad { color: var(--red); }
+
+/* 问题说明 / 谓词 */
+.prob p { margin: 4px 0; font-size: 13px; line-height: 1.6; }
+.prob .preds { display: flex; flex-wrap: wrap; gap: 6px; }
+.pred {
+  font-family: var(--mono); font-size: 12px;
+  background: var(--accent);
+  color: rgba(255,255,255,.9);
+  padding: 2px 8px; border-radius: 6px;
+}
+.pred.alt { background: var(--red); }
+
+/* 局内玩法说明 */
 .stagenote {
   margin: 0 0 12px;
   font-size: 13px; line-height: 1.7;
@@ -172,9 +165,9 @@
   border-left: 3px solid var(--accent);
   border-radius: 10px; padding: 10px 14px;
 }
-.stagenote u { text-decoration-color: var(--accent); }
+.movehint { font-size: 12px; color: var(--dim); }
 
-/* 首页「怎么玩」（可折叠） */
+/* 首页「怎么玩」 */
 details.howto {
   margin: 4px 0 18px;
   background: var(--panel);
@@ -189,9 +182,4 @@ details.howto[open] summary { margin-bottom: 8px; }
 details.howto #howtoBody p {
   margin: 6px 0; font-size: 13.5px; line-height: 1.8; color: var(--text);
 }
-
-/* 移动提示 */
-.movehint { font-size: 12px; color: var(--dim); }
-
-/* 说明文字（tip 已有 base.css 的样式） */
 .lead { max-width: 640px; }

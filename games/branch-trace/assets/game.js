@@ -1,12 +1,14 @@
-/* Python 分支地牢：一个角色在一张会走路的格子地图上移动，选对每个 if/elif/else 该走哪条。
+/* Python 分支地牢：在迷宫里拼一段 if/elif/else + 移动指令的程序，走到 ★ 终点过关。
 
-   这一关的每一步（哪条分支会走、金币放在哪、陷阱放在哪）**不是这里算的**，
-   是出题时用真 CPython 跑出来写进 levels.json 的（tools/branch-levels.py）。
-   浏览器里一行 Python 都不跑 —— 单人玩的时候连一个字节的 wasm 都不用下。
+   这一关的迷宫、块、正解**不是这里算的**，是出题时用确定算法跑出来写进
+   levels.json 的（tools/branch-levels.py）。浏览器只按 blocks/map 解释执行，
+   一行 Python 都不跑。
 
-   移动 = 作答：把角色走进某条走廊就等于选了那条分支。走对了通到下一个岔口，
-   走错了踩陷阱、扣时、看清那条不该走 —— 然后可以换个岔口再来。
-   走到 ★ 终点 = 这一关的程序跑完，过关。 */
+   玩法：
+   · 每关一组方块—— if/elif/else 分支块（迷宫感知：前方/左方/右方是否有路）
+     和移动指令块（前进/左转/右转）。点击方块加入下方程序区，可拖拽重排、可删。
+   · 点「执行」，程序从头跑到尾，角色按程序自动走；走到 ★ 终点即过关。
+   · 撞墙 = 程序不对，扣时、可以改块重试。限时内过关，与题数和块量成正比。 */
 
 import bank from "../levels.json";
 import en from "./locales/en.js";
@@ -22,10 +24,10 @@ const GAME_ID = "branch-trace";
 const PACKS = { en: en, "zh-CN": zhCN };
 const el = function (id) { return document.getElementById(id); };
 
-/* 每关限时 = BASE + PER × 本关岔口数。默认 12 秒垫底 + 每题 20 秒。 */
-const TIME_BASE = 12;
-const TIME_PER_REGION = 20;
-/* 踩一次陷阱扣 5 秒。错了有代价，但随时可以换个岔口重试，不设次数上限。 */
+/* 每关限时 = BASE + PER × 本关块量。默认 25 秒垫底 + 每题 10 秒。 */
+const TIME_BASE = 25;
+const TIME_PER_BLOCK = 10;
+/* 撞一次墙扣 5 秒。错了有代价，但随时可以改块重试，不设次数上限。 */
 const WRONG_PENALTY_MS = 5000;
 
 let levels = bank.levels || bank;
@@ -127,8 +129,8 @@ function renderList() {
 
 /* -------------------------------- 游戏 -------------------------------- */
 
-function regionCount(lv) {
-  return Math.max(1, ((lv.map && lv.map.regions) || []).length);
+function blockCount(lv) {
+  return Math.max(1, ((lv && lv.blocks) || []).length);
 }
 
 function startLevel(i) { begin(levels[i], i); }
@@ -141,7 +143,7 @@ function begin(lv, index) {
     level: lv,
     t: t,
     win: function () { finish(); },
-    lose: function () { if (clock) clock.penalize(WRONG_PENALTY_MS); jolt(); },
+    fail: function () { if (clock) clock.penalize(WRONG_PENALTY_MS); jolt(); },
   });
   dungeon.relocalize();
 
@@ -156,9 +158,8 @@ function begin(lv, index) {
 }
 
 function jolt() {
-  el("work").classList.remove("failed");
-  void el("work").offsetWidth;
-  el("work").classList.add("failed");
+  dungeon.rewind();                        /* 撞墙这次作废，回到起点重摆（保留程序与尝试次数） */
+  paintChrome();
 }
 
 function paintChrome() {
@@ -169,20 +170,21 @@ function paintChrome() {
     ? t("ui.roomTitle")
     : t("ui.levelNo", { n: game.index + 1 }) + " · " + lvText(lv, "title");
   el("counter").textContent = dungeon
-    ? t("ui.coins", { n: dungeon.coins() })
+    ? t("ui.attempts", { n: dungeon.attempts() })
     : "";
   if (timedOut) {
     el("tip").textContent = t("ui.timeUp");
     return;
   }
-  const unit = regionCount(lv);
-  const limit = Math.round(limitMs(lv, unit, TIME_BASE, TIME_PER_REGION) / 1000);
+  const unit = blockCount(lv);
+  const limit = Math.round(limitMs(lv, unit, TIME_BASE, TIME_PER_BLOCK) / 1000);
   el("tip").textContent = t("ui.timeLimit", { n: limit }) + " · " + lvText(lv, "tip");
 }
 
-/* 出报告用：岔口里第一次就走通的比例 */
+/* 本关正确率：试的次数越少越接近 1（一次跑通 = 1） */
 function rate() {
-  return dungeon ? dungeon.firstTry() / Math.max(1, dungeon.total()) : 1;
+  const a = dungeon ? dungeon.attempts() : 1;
+  return a <= 0 ? 1 : Math.round((1 / a) * 100) / 100;
 }
 
 function finish() {
@@ -193,9 +195,7 @@ function finish() {
   const imported = index < 0;
   const last = !imported && index === levels.length - 1;
   const seconds = Math.round((Date.now() - game.startedAt) / 1000);
-  const ok = dungeon.firstTry();
-  const total = dungeon.total();
-  const coins = dungeon.coins();
+  const attempts = dungeon.attempts();
   const time = formatClock(seconds * 1000);
 
   el("work").classList.remove("failed");
@@ -204,8 +204,8 @@ function finish() {
     level: imported ? 0 : index + 1,
     levelId: imported ? "__imported__" : lv.id,
     levelTitle: imported ? "" : lvText(lv, "title"),
-    correct: ok,
-    total: total,
+    correct: attempts === 1 ? 1 : 0,
+    total: attempts,
     rate: courseRate(prog.count()),   /* 课程完成度：每关 20%，过 5 关到 1 */
     levelRate: rate(),                /* 本关正确率，供参考 */
     progress: prog.ratio(),
@@ -220,8 +220,8 @@ function finish() {
   celebrate({
     title: t("ui.win"),
     lines: [
-      ok === total ? t("ui.perfect") : t("ui.partial", { ok: ok, total: total }),
-      t("ui.winLine", { regions: total, coins: coins, time: time }),
+      attempts === 1 ? t("ui.perfect") : t("ui.partial", { ok: attempts === 1 ? 1 : 0, total: attempts }),
+      t("ui.winLine", { attempts: attempts, time: time }),
     ],
     actionLabel: last ? t("ui.allDone") : t("ui.next"),
     onAction: function () { if (last) toList(); else startLevel(index + 1); },
@@ -246,12 +246,12 @@ function teardownDungeon() {
 /* -------------------------------- 计时 -------------------------------- */
 
 function startClock() {
-  const unit = regionCount(game.level);
-  clock.start(limitMs(game.level, unit, TIME_BASE, TIME_PER_REGION));
+  const unit = blockCount(game.level);
+  clock.start(limitMs(game.level, unit, TIME_BASE, TIME_PER_BLOCK));
 }
 function stopClock() { if (clock) clock.stop(); }
 
-/* 超时：把角色锁住，关留下当你看清全局，题目作废。比分留白，不硬判错。 */
+/* 超时：把角色锁住，程序不能再跑。题目作废，比分留白，不硬判错。 */
 function timeUp() {
   if (!game || timedOut) return;
   timedOut = true;
@@ -262,9 +262,10 @@ function timeUp() {
 
 /* ------------------------------ 房间（多人） ------------------------------ */
 
-function regionsAt(i) {
-  const lv = Array.isArray(levels) ? levels[i] : null;
-  return lv ? regionCount(lv) : 0;
+/* 房间里"这一关的目标"：本玩法是"程序能否走通"，只有通/没通两种状态，
+   所以目标数 = 1（塔上按此画高度）。pos = 是否通关（0/1）。 */
+function goalAt() {
+  return 1;
 }
 
 function reportProgress() {
@@ -317,7 +318,7 @@ async function enterRoom(code) {
     lobby: el("lobby"),
     tower: el("tower"),
     t: t,
-    denomFor: regionsAt,
+    denomFor: goalAt,
     startLabel: function () {
       return t("ui.levelNo", { n: 1 }) + " · " + lvText(levels[0], "title");
     },
@@ -395,12 +396,6 @@ function relocalize() {
 
 /* -------------------------------- 启动 -------------------------------- */
 
-const MOVE = {
-  ArrowUp: [-1, 0], ArrowDown: [1, 0], ArrowLeft: [0, -1], ArrowRight: [0, 1],
-  w: [-1, 0], s: [1, 0], a: [0, -1], d: [0, 1],
-  W: [-1, 0], S: [1, 0], A: [0, -1], D: [0, 1],
-};
-
 async function boot() {
   mountSwitcher();
   i18n.onChange(relocalize);
@@ -435,13 +430,17 @@ async function boot() {
       if (game || mode === MODE.ROOM) toList();
       return;
     }
-    if (!game || timedOut || isCelebrating()) return;
-    const mv = MOVE[e.key];
-    if (mv && !/^(INPUT|TEXTAREA)$/.test(document.activeElement.tagName)) {
+    if (!game || timedOut || isCelebrating() || !dungeon) return;
+    if (/^(INPUT|TEXTAREA)$/.test(document.activeElement.tagName)) return;
+    if (e.key === "Enter") {
       e.preventDefault();
-      dungeon.stepTo(mv[0], mv[1]);
+      dungeon.run();
       paintChrome();
       reportProgress();
+    } else if (e.key === "Backspace") {
+      e.preventDefault();
+      dungeon.undo();
+      paintChrome();
     }
   });
 

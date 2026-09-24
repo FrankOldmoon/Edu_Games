@@ -1,604 +1,487 @@
 {
-  "_generatedBy": "tools/branch-levels.py —— 分支/地图/金币/陷阱都由真 CPython 跑出来，别手改；改题请改脚本再重跑",
+  "_generatedBy": "tools/branch-levels.py —— 迷宫/块/正解都由脚本算出来并自校验，别手改；改题请改脚本再重跑",
   "levels": [
     {
-      "id": "b01",
-      "code": [
-        "score = 5",
-        "if score >= 6:",
-        "    grade = \"pass\"",
-        "else:",
-        "    grade = \"fail\"",
-        "print(grade)"
-      ],
-      "steps": [
-        {
-          "line": 0,
-          "vars": {
-            "score": "5"
-          },
-          "out": 0,
-          "next": 1
-        },
-        {
-          "line": 1,
-          "vars": {
-            "score": "5"
-          },
-          "out": 0,
-          "cond": false,
-          "next": 4
-        },
-        {
-          "line": 4,
-          "vars": {
-            "grade": "'fail'",
-            "score": "5"
-          },
-          "out": 0,
-          "next": 5
-        },
-        {
-          "line": 5,
-          "vars": {
-            "grade": "'fail'",
-            "score": "5"
-          },
-          "out": 1
-        }
-      ],
+      "id": "m01",
+      "title": "碰壁右转",
+      "tip": "前方是墙就右转",
       "timer": {
-        "base": 12,
-        "per": 20
+        "base": 20,
+        "per": 8
       },
       "map": {
         "rows": [
-          "S.........G",
-          "##......###",
-          "##..oo..###"
+          "#######",
+          "#S..###",
+          "###.G##",
+          "#######",
+          "#######"
         ],
-        "cols": 11,
-        "regions": [
-          {
-            "line": 1,
-            "lc": 2,
-            "rc": 7,
-            "branches": [
-              {
-                "label": "if score >= 6:",
-                "taken": false,
-                "dead": true,
-                "explain": "前面的条件都不成立，所以程序走了 else 分支（else:）。"
-              },
-              {
-                "label": "else:",
-                "taken": true,
-                "dead": false,
-                "explain": "前面的条件都不成立，所以程序走了 else 分支（else:）。"
-              }
-            ],
-            "explain": "前面的条件都不成立，所以程序走了 else 分支（else:）。"
-          }
-        ]
-      }
+        "cols": 7,
+        "start": {
+          "r": 1,
+          "c": 1,
+          "dir": "E"
+        },
+        "goal": {
+          "r": 2,
+          "c": 4
+        }
+      },
+      "blocks": [
+        {
+          "id": "b1",
+          "type": "move",
+          "op": "R"
+        },
+        {
+          "id": "b2",
+          "type": "move",
+          "op": "F"
+        },
+        {
+          "id": "b3",
+          "type": "move",
+          "op": "F"
+        },
+        {
+          "id": "c4",
+          "type": "chain",
+          "conds": [
+            {
+              "pred": "front-wall",
+              "then": [
+                "b1",
+                "b2"
+              ]
+            }
+          ],
+          "else": [
+            "b3"
+          ]
+        },
+        {
+          "id": "b5",
+          "type": "move",
+          "op": "F"
+        },
+        {
+          "id": "b6",
+          "type": "move",
+          "op": "F"
+        },
+        {
+          "id": "b7",
+          "type": "move",
+          "op": "L"
+        },
+        {
+          "id": "b8",
+          "type": "move",
+          "op": "F"
+        },
+        {
+          "id": "d9",
+          "type": "move",
+          "op": "L"
+        }
+      ],
+      "answer": [
+        "b5",
+        "b6",
+        "c4",
+        "b7",
+        "b8"
+      ],
+      "distractors": [
+        "d9"
+      ],
+      "solutionSteps": 4
     },
     {
-      "id": "b02",
-      "code": [
-        "n = 10",
-        "if n % 2 == 0:",
-        "    tag = \"even\"",
-        "else:",
-        "    tag = \"odd\"",
-        "print(tag)"
-      ],
-      "steps": [
-        {
-          "line": 0,
-          "vars": {
-            "n": "10"
-          },
-          "out": 0,
-          "next": 1
-        },
-        {
-          "line": 1,
-          "vars": {
-            "n": "10"
-          },
-          "out": 0,
-          "cond": true,
-          "next": 2
-        },
-        {
-          "line": 2,
-          "vars": {
-            "n": "10",
-            "tag": "'even'"
-          },
-          "out": 0,
-          "next": 5
-        },
-        {
-          "line": 5,
-          "vars": {
-            "n": "10",
-            "tag": "'even'"
-          },
-          "out": 1
-        }
-      ],
+      "id": "m02",
+      "title": "T 字路口",
+      "tip": "前方没路往左拐",
       "timer": {
-        "base": 12,
-        "per": 20
+        "base": 20,
+        "per": 8
       },
       "map": {
         "rows": [
-          "S.........G",
-          "##..oo..###",
-          "##......###"
+          "######",
+          "#S..##",
+          "###G##",
+          "######",
+          "######"
         ],
-        "cols": 11,
-        "regions": [
-          {
-            "line": 1,
-            "lc": 2,
-            "rc": 7,
-            "branches": [
-              {
-                "label": "if n % 2 == 0:",
-                "taken": true,
-                "dead": false,
-                "explain": "条件 if n % 2 == 0: 为 真(True)，所以程序走进这条分支（if n % 2 == 0:）。"
-              },
-              {
-                "label": "else:",
-                "taken": false,
-                "dead": true,
-                "explain": "条件 if n % 2 == 0: 为 真(True)，所以程序走进这条分支（if n % 2 == 0:）。"
-              }
-            ],
-            "explain": "条件 if n % 2 == 0: 为 真(True)，所以程序走进这条分支（if n % 2 == 0:）。"
-          }
-        ]
-      }
+        "cols": 6,
+        "start": {
+          "r": 1,
+          "c": 1,
+          "dir": "E"
+        },
+        "goal": {
+          "r": 2,
+          "c": 3
+        }
+      },
+      "blocks": [
+        {
+          "id": "b1",
+          "type": "move",
+          "op": "R"
+        },
+        {
+          "id": "b2",
+          "type": "move",
+          "op": "F"
+        },
+        {
+          "id": "b3",
+          "type": "move",
+          "op": "F"
+        },
+        {
+          "id": "c4",
+          "type": "chain",
+          "conds": [
+            {
+              "pred": "front-wall",
+              "then": [
+                "b1",
+                "b2"
+              ]
+            }
+          ],
+          "else": [
+            "b3"
+          ]
+        },
+        {
+          "id": "b5",
+          "type": "move",
+          "op": "F"
+        },
+        {
+          "id": "b6",
+          "type": "move",
+          "op": "F"
+        },
+        {
+          "id": "d7",
+          "type": "move",
+          "op": "L"
+        }
+      ],
+      "answer": [
+        "b5",
+        "b6",
+        "c4"
+      ],
+      "distractors": [
+        "d7"
+      ],
+      "solutionSteps": 3
     },
     {
-      "id": "b03",
-      "code": [
-        "x = 7",
-        "if x < 5:",
-        "    size = \"small\"",
-        "elif x < 10:",
-        "    size = \"medium\"",
-        "else:",
-        "    size = \"large\"",
-        "print(size)"
-      ],
-      "steps": [
-        {
-          "line": 0,
-          "vars": {
-            "x": "7"
-          },
-          "out": 0,
-          "next": 1
-        },
-        {
-          "line": 1,
-          "vars": {
-            "x": "7"
-          },
-          "out": 0,
-          "cond": false,
-          "next": 3
-        },
-        {
-          "line": 3,
-          "vars": {
-            "x": "7"
-          },
-          "out": 0,
-          "cond": true,
-          "next": 4
-        },
-        {
-          "line": 4,
-          "vars": {
-            "size": "'medium'",
-            "x": "7"
-          },
-          "out": 0,
-          "next": 7
-        },
-        {
-          "line": 7,
-          "vars": {
-            "size": "'medium'",
-            "x": "7"
-          },
-          "out": 1
-        }
-      ],
+      "id": "m03",
+      "title": "三岔路口",
+      "tip": "左边没路往前走",
       "timer": {
-        "base": 12,
-        "per": 20
+        "base": 20,
+        "per": 8
       },
       "map": {
         "rows": [
-          "S.........G",
-          "##......###",
-          "##..oo..###",
-          "##......###"
+          "#######",
+          "#S.####",
+          "##.####",
+          "##..G##",
+          "#######",
+          "#######"
         ],
-        "cols": 11,
-        "regions": [
-          {
-            "line": 1,
-            "lc": 2,
-            "rc": 7,
-            "branches": [
-              {
-                "label": "if x < 5:",
-                "taken": false,
-                "dead": true,
-                "explain": "条件 elif x < 10: 为 真(True)，所以程序走进这条分支（elif x < 10:）。"
-              },
-              {
-                "label": "elif x < 10:",
-                "taken": true,
-                "dead": false,
-                "explain": "条件 elif x < 10: 为 真(True)，所以程序走进这条分支（elif x < 10:）。"
-              },
-              {
-                "label": "else:",
-                "taken": false,
-                "dead": true,
-                "explain": "条件 elif x < 10: 为 真(True)，所以程序走进这条分支（elif x < 10:）。"
-              }
-            ],
-            "explain": "条件 elif x < 10: 为 真(True)，所以程序走进这条分支（elif x < 10:）。"
-          }
-        ]
-      }
+        "cols": 7,
+        "start": {
+          "r": 1,
+          "c": 1,
+          "dir": "E"
+        },
+        "goal": {
+          "r": 3,
+          "c": 4
+        }
+      },
+      "blocks": [
+        {
+          "id": "b1",
+          "type": "move",
+          "op": "R"
+        },
+        {
+          "id": "b2",
+          "type": "move",
+          "op": "F"
+        },
+        {
+          "id": "b3",
+          "type": "move",
+          "op": "F"
+        },
+        {
+          "id": "c4",
+          "type": "chain",
+          "conds": [
+            {
+              "pred": "front-wall",
+              "then": [
+                "b1",
+                "b2"
+              ]
+            }
+          ],
+          "else": [
+            "b3"
+          ]
+        },
+        {
+          "id": "b5",
+          "type": "move",
+          "op": "F"
+        },
+        {
+          "id": "b6",
+          "type": "move",
+          "op": "F"
+        },
+        {
+          "id": "b7",
+          "type": "move",
+          "op": "L"
+        },
+        {
+          "id": "b8",
+          "type": "move",
+          "op": "F"
+        },
+        {
+          "id": "b9",
+          "type": "move",
+          "op": "F"
+        },
+        {
+          "id": "d10",
+          "type": "move",
+          "op": "L"
+        }
+      ],
+      "answer": [
+        "b5",
+        "c4",
+        "b6",
+        "b7",
+        "b8",
+        "b9"
+      ],
+      "distractors": [
+        "d10"
+      ],
+      "solutionSteps": 5
     },
     {
-      "id": "b04",
-      "code": [
-        "n = 8",
-        "if n > 5:",
-        "    if n > 9:",
-        "        g = \"big\"",
-        "    else:",
-        "        g = \"mid\"",
-        "else:",
-        "    g = \"small\"",
-        "print(g)"
-      ],
-      "steps": [
-        {
-          "line": 0,
-          "vars": {
-            "n": "8"
-          },
-          "out": 0,
-          "next": 1
-        },
-        {
-          "line": 1,
-          "vars": {
-            "n": "8"
-          },
-          "out": 0,
-          "cond": true,
-          "next": 2
-        },
-        {
-          "line": 2,
-          "vars": {
-            "n": "8"
-          },
-          "out": 0,
-          "cond": false,
-          "next": 5
-        },
-        {
-          "line": 5,
-          "vars": {
-            "g": "'mid'",
-            "n": "8"
-          },
-          "out": 0,
-          "next": 8
-        },
-        {
-          "line": 8,
-          "vars": {
-            "g": "'mid'",
-            "n": "8"
-          },
-          "out": 1
-        }
-      ],
+      "id": "m04",
+      "title": "穿过死胡同",
+      "tip": "见墙左转，贴着走",
       "timer": {
-        "base": 12,
-        "per": 20
+        "base": 20,
+        "per": 8
       },
       "map": {
         "rows": [
-          "S................G",
-          "##..oo..#......###",
-          "##......#..oo..###"
+          "######",
+          "#S####",
+          "#.####",
+          "#..G##",
+          "######",
+          "######"
         ],
-        "cols": 18,
-        "regions": [
-          {
-            "line": 1,
-            "lc": 2,
-            "rc": 7,
-            "branches": [
-              {
-                "label": "if n > 5:",
-                "taken": true,
-                "dead": false,
-                "explain": "条件 if n > 5: 为 真(True)，所以程序走进这条分支（if n > 5:）。"
-              },
-              {
-                "label": "else:",
-                "taken": false,
-                "dead": true,
-                "explain": "条件 if n > 5: 为 真(True)，所以程序走进这条分支（if n > 5:）。"
-              }
-            ],
-            "explain": "条件 if n > 5: 为 真(True)，所以程序走进这条分支（if n > 5:）。"
-          },
-          {
-            "line": 2,
-            "lc": 9,
-            "rc": 14,
-            "branches": [
-              {
-                "label": "if n > 9:",
-                "taken": false,
-                "dead": true,
-                "explain": "前面的条件都不成立，所以程序走了 else 分支（else:）。"
-              },
-              {
-                "label": "else:",
-                "taken": true,
-                "dead": false,
-                "explain": "前面的条件都不成立，所以程序走了 else 分支（else:）。"
-              }
-            ],
-            "explain": "前面的条件都不成立，所以程序走了 else 分支（else:）。"
-          }
-        ]
-      }
+        "cols": 6,
+        "start": {
+          "r": 1,
+          "c": 1,
+          "dir": "E"
+        },
+        "goal": {
+          "r": 3,
+          "c": 3
+        }
+      },
+      "blocks": [
+        {
+          "id": "b1",
+          "type": "move",
+          "op": "R"
+        },
+        {
+          "id": "b2",
+          "type": "move",
+          "op": "F"
+        },
+        {
+          "id": "b3",
+          "type": "move",
+          "op": "F"
+        },
+        {
+          "id": "c4",
+          "type": "chain",
+          "conds": [
+            {
+              "pred": "front-wall",
+              "then": [
+                "b1",
+                "b2"
+              ]
+            }
+          ],
+          "else": [
+            "b3"
+          ]
+        },
+        {
+          "id": "b5",
+          "type": "move",
+          "op": "F"
+        },
+        {
+          "id": "b6",
+          "type": "move",
+          "op": "L"
+        },
+        {
+          "id": "b7",
+          "type": "move",
+          "op": "F"
+        },
+        {
+          "id": "b8",
+          "type": "move",
+          "op": "F"
+        },
+        {
+          "id": "d9",
+          "type": "move",
+          "op": "L"
+        }
+      ],
+      "answer": [
+        "c4",
+        "b5",
+        "b6",
+        "b7",
+        "b8"
+      ],
+      "distractors": [
+        "d9"
+      ],
+      "solutionSteps": 4
     },
     {
-      "id": "b05",
-      "code": [
-        "age = 16",
-        "has_id = True",
-        "if age >= 18 and has_id:",
-        "    can = \"yes\"",
-        "else:",
-        "    can = \"no\"",
-        "print(can)"
-      ],
-      "steps": [
-        {
-          "line": 0,
-          "vars": {
-            "age": "16"
-          },
-          "out": 0,
-          "next": 1
-        },
-        {
-          "line": 1,
-          "vars": {
-            "age": "16",
-            "has_id": "True"
-          },
-          "out": 0,
-          "next": 2
-        },
-        {
-          "line": 2,
-          "vars": {
-            "age": "16",
-            "has_id": "True"
-          },
-          "out": 0,
-          "cond": false,
-          "next": 5
-        },
-        {
-          "line": 5,
-          "vars": {
-            "age": "16",
-            "can": "'no'",
-            "has_id": "True"
-          },
-          "out": 0,
-          "next": 6
-        },
-        {
-          "line": 6,
-          "vars": {
-            "age": "16",
-            "can": "'no'",
-            "has_id": "True"
-          },
-          "out": 1
-        }
-      ],
+      "id": "m05",
+      "title": "九宫格",
+      "tip": "一路感测，别撞墙",
       "timer": {
-        "base": 12,
-        "per": 20
+        "base": 20,
+        "per": 8
       },
       "map": {
         "rows": [
-          "S.........G",
-          "##......###",
-          "##..oo..###"
+          "#######",
+          "#S...##",
+          "####.##",
+          "####G##",
+          "#######",
+          "#######"
         ],
-        "cols": 11,
-        "regions": [
-          {
-            "line": 2,
-            "lc": 2,
-            "rc": 7,
-            "branches": [
-              {
-                "label": "if age >= 18 and has_id:",
-                "taken": false,
-                "dead": true,
-                "explain": "前面的条件都不成立，所以程序走了 else 分支（else:）。"
-              },
-              {
-                "label": "else:",
-                "taken": true,
-                "dead": false,
-                "explain": "前面的条件都不成立，所以程序走了 else 分支（else:）。"
-              }
-            ],
-            "explain": "前面的条件都不成立，所以程序走了 else 分支（else:）。"
-          }
-        ]
-      }
-    },
-    {
-      "id": "b06",
-      "code": [
-        "t = 82",
-        "if t >= 90:",
-        "    rank = \"A\"",
-        "elif t >= 80:",
-        "    if t == 82:",
-        "        rank = \"B+\"",
-        "    else:",
-        "        rank = \"B\"",
-        "else:",
-        "    rank = \"C\"",
-        "print(rank)"
-      ],
-      "steps": [
+        "cols": 7,
+        "start": {
+          "r": 1,
+          "c": 1,
+          "dir": "E"
+        },
+        "goal": {
+          "r": 3,
+          "c": 4
+        }
+      },
+      "blocks": [
         {
-          "line": 0,
-          "vars": {
-            "t": "82"
-          },
-          "out": 0,
-          "next": 1
+          "id": "b1",
+          "type": "move",
+          "op": "R"
         },
         {
-          "line": 1,
-          "vars": {
-            "t": "82"
-          },
-          "out": 0,
-          "cond": false,
-          "next": 3
+          "id": "b2",
+          "type": "move",
+          "op": "F"
         },
         {
-          "line": 3,
-          "vars": {
-            "t": "82"
-          },
-          "out": 0,
-          "cond": true,
-          "next": 4
+          "id": "b3",
+          "type": "move",
+          "op": "F"
         },
         {
-          "line": 4,
-          "vars": {
-            "t": "82"
-          },
-          "out": 0,
-          "cond": true,
-          "next": 5
+          "id": "c4",
+          "type": "chain",
+          "conds": [
+            {
+              "pred": "front-wall",
+              "then": [
+                "b1",
+                "b2"
+              ]
+            }
+          ],
+          "else": [
+            "b3"
+          ]
         },
         {
-          "line": 5,
-          "vars": {
-            "rank": "'B+'",
-            "t": "82"
-          },
-          "out": 0,
-          "next": 10
+          "id": "b5",
+          "type": "move",
+          "op": "F"
         },
         {
-          "line": 10,
-          "vars": {
-            "rank": "'B+'",
-            "t": "82"
-          },
-          "out": 1
+          "id": "b6",
+          "type": "move",
+          "op": "F"
+        },
+        {
+          "id": "b7",
+          "type": "move",
+          "op": "F"
+        },
+        {
+          "id": "b8",
+          "type": "move",
+          "op": "F"
+        },
+        {
+          "id": "d9",
+          "type": "move",
+          "op": "L"
         }
       ],
-      "timer": {
-        "base": 12,
-        "per": 20
-      },
-      "map": {
-        "rows": [
-          "S................G",
-          "##......#..oo..###",
-          "##..oo..#......###",
-          "##......##########"
-        ],
-        "cols": 18,
-        "regions": [
-          {
-            "line": 1,
-            "lc": 2,
-            "rc": 7,
-            "branches": [
-              {
-                "label": "if t >= 90:",
-                "taken": false,
-                "dead": true,
-                "explain": "条件 elif t >= 80: 为 真(True)，所以程序走进这条分支（elif t >= 80:）。"
-              },
-              {
-                "label": "elif t >= 80:",
-                "taken": true,
-                "dead": false,
-                "explain": "条件 elif t >= 80: 为 真(True)，所以程序走进这条分支（elif t >= 80:）。"
-              },
-              {
-                "label": "else:",
-                "taken": false,
-                "dead": true,
-                "explain": "条件 elif t >= 80: 为 真(True)，所以程序走进这条分支（elif t >= 80:）。"
-              }
-            ],
-            "explain": "条件 elif t >= 80: 为 真(True)，所以程序走进这条分支（elif t >= 80:）。"
-          },
-          {
-            "line": 4,
-            "lc": 9,
-            "rc": 14,
-            "branches": [
-              {
-                "label": "if t == 82:",
-                "taken": true,
-                "dead": false,
-                "explain": "条件 if t == 82: 为 真(True)，所以程序走进这条分支（if t == 82:）。"
-              },
-              {
-                "label": "else:",
-                "taken": false,
-                "dead": true,
-                "explain": "条件 if t == 82: 为 真(True)，所以程序走进这条分支（if t == 82:）。"
-              }
-            ],
-            "explain": "条件 if t == 82: 为 真(True)，所以程序走进这条分支（if t == 82:）。"
-          }
-        ]
-      }
+      "answer": [
+        "b5",
+        "b6",
+        "b7",
+        "c4",
+        "b8"
+      ],
+      "distractors": [
+        "d9"
+      ],
+      "solutionSteps": 5
     }
   ]
 }

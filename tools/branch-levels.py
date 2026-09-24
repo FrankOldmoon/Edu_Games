@@ -1,357 +1,335 @@
 # -*- coding: utf-8 -*-
-"""分支地牢的出题脚本 —— 跑一次，生成 games/branch-trace/levels.json。
+"""分支地牢(新玩法)的出题脚本 —— 跑一次，生成 games/branch-trace/levels.json。
 
-    python3 tools/branch-levels.py
+玩法：每关一个小迷宫，角色带朝向立于起点。玩家用手头的方块搭一段程序
+（if/elif/else 分支块判断「前方/左方/右方是否有路」+ 前进F/左转L/右转R 移动块），
+点执行后角色按程序自动走，到达 ★ 终点即过关。不做循环。
 
-跟变量追踪一个原则：每一关的「哪条分支会走」由真 CPython（tools/pytrace.py）
-跑出来，绝不手写。这里只写程序代码 + 关卡标题；其余——
-  岔路（哪条分支真会执行）、地图（每条分支 = 一条走廊）、金币（放在正确分支上）、
-  陷阱（放在死分支上）、变量自动生成。
-
-地图模型（branch dungeon）：
-  把一整关画成一条从左到右的「巷道」。每个 if/elif/else 决策是一个岔路口，
-  每条分支是一条并排的走廊；玩家走到岔路口，选一条走廊进去——
-  选对了（程序真走的那条）沿路捡金币、往前走；选错了踩进死走廊的陷阱，弹回、扣时、讲解。
-  一层是由多个岔路口按执行顺序从左到右串起来的。
+一个原则：每关的「正解程序」由这里用确定性算法算出来，并用脚本里同款迷你解释器
+跑一遍断言能到终点 —— 绝不手写答案。块、谓词、迷宫形状都是算出来的。
 """
 import json
 import os
-import re
-import sys
-
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from pytrace import trace_of  # noqa: E402
 
 OUT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "games", "branch-trace", "levels.json")
 
-# 每关每条走廊画多长（格子）—— 太小放不下金币，太大显得空旷
-CORRIDOR = 4
+TITLE = {"m01": "碰壁右转", "m02": "T 字路口", "m03": "三岔路口", "m04": "穿过死胡同", "m05": "九宫格"}
+TIP = {
+    "m01": "前方是墙就右转",
+    "m02": "前方没路往左拐",
+    "m03": "左边没路往前走",
+    "m04": "见墙左转，贴着走",
+    "m05": "一路感测，别撞墙",
+}
 
-TIMER = {"base": 12, "per": 20}
-
-
-# ---------------------------------------------------------------------------
-# 缩进块解析：把代码切成一棵树。每个分支节点 = 一条 if/elif/else 链。
-# ---------------------------------------------------------------------------
-
-def _indent(raw):
-    return len(raw) - len(raw.lstrip(" "))
-
-
-def _kw(raw):
-    s = raw.strip()
-    if not s:
-        return ""
-    s = s.rstrip(":").strip("()")          # 去掉行尾冒号和括号，只剩关键词
-    return s.split(" ", 1)[0]
-
-
-def parse_blocks(code):
-    items, i = _parse_level(code, 0, -1)
-    if i != len(code):
-        raise SystemExit("代码第 %d 行缩进对不上" % (i + 1))
-    return items
-
-
-def _parse_level(code, start, stop_ind):
-    """读取所有『比 stop_ind 更深』的语句，缩进回到 stop_ind 或更浅就停。
-
-    stop_ind：这条块的边界缩进（比如 if 体用 if 头的缩进做界，遇到 elif 就停）。
-    """
-    items = []
-    i = start
-    n = len(code)
-    while i < n:
-        raw = code[i]
-        if raw.strip() == "":
-            i += 1
-            continue
-        ind = _indent(raw)
-        if ind <= stop_ind:                  # 回到外层缩进 → 这条块结束了
-            break
-        k = _kw(raw)
-        if k == "if":
-            node, i = _parse_branch(code, i, ind)
-            items.append(node)
-        elif k in ("elif", "else"):
-            raise SystemExit("代码第 %d 行有裸 %s（前面缺 if）" % (i + 1, k))
-        elif k == "while" or raw.strip().startswith("for "):
-            raise SystemExit("分支地牢不做循环，第 %d 行 %r 去掉" % (i + 1, raw.strip()))
-        else:
-            items.append(raw)
-            i += 1
-    return items, i
-
-
-def _parse_branch(code, start, indent):
-    headers = []
-    bodies = []
-    lines = []
-    i = start
-    n = len(code)
-    while i < n and _kw(code[i]) in ("if", "elif", "else") and _indent(code[i]) == indent:
-        lines.append(i)
-        headers.append(code[i])
-        i += 1
-        body, i = _parse_level(code, i, indent)   # 读到下一个同行缩进的 elif/else 为止
-        bodies.append(body)
-    return {"kind": "branch", "lines": lines, "headers": headers, "bodies": bodies}, i
+DIRS = [(-1, 0), (0, 1), (1, 0), (0, -1)]  # N E S W
+DIRMAP = {"N": 0, "E": 1, "S": 2, "W": 3}
+INV = {0: "N", 1: "E", 2: "S", 3: "W"}
+TURN = {"L": -1, "R": 1, "F": 0}
 
 
 # ---------------------------------------------------------------------------
-# 分支判定 & 生成
+# 迷你解释器：把块程序跑一遍迷宫，判断能否到终点
 # ---------------------------------------------------------------------------
 
-def _step_first(steps, line):
-    for s in steps:
-        if s["line"] == line:
-            return s
-    return None
+class World:
+    def __init__(self, rows):
+        self.rows = [list(r) for r in rows]
+        self.h = len(self.rows)
+        self.w = len(self.rows[0]) if self.h else 0
+        self.start = None
+        self.goal = None
+        s = None
+        for r in range(self.h):
+            for c in range(self.w):
+                ch = self.rows[r][c]
+                if ch == "S":
+                    s = (r, c)
+                elif ch == "G":
+                    self.goal = (r, c)
+        self.start = s
+
+    def open(self, r, c):
+        if r < 0 or c < 0 or r >= self.h or c >= self.w:
+            return False
+        return self.rows[r][c] != "#"
+
+    def cell(self, r, c):
+        if r < 0 or c < 0 or r >= self.h or c >= self.w:
+            return "#"
+        return self.rows[r][c]
 
 
-def _is_else_header(raw):
-    return raw.strip().startswith("else")
+def run_program(rows, blocks, program):
+    """program: 顶层块 id 序列。blocks: {id:block}。返回 (ok, on_goal, steps, pos_history)。"""
+    byid = {b["id"]: b for b in blocks}
+    sr, sc = None, None
+    for r in range(len(rows)):
+        for c in range(len(rows[r])):
+            if rows[r][c] == "S":
+                sr, sc = r, c
+    w = World(rows)
+    if w.start is None:
+        return (False, False, 0, [])
+    pr, pc = w.start
+    di = 1  # 默认朝 E
+    ok = True
+    steps = 0
+    hist = [(pr, pc, INV[di])]
 
+    def apply_move(op):
+        nonlocal pr, pc, di, steps
+        if op == "L":
+            di = (di - 1) % 4
+        elif op == "R":
+            di = (di + 1) % 4
+        elif op == "F":
+            dr, dc = DIRS[di]
+            nr, nc = pr + dr, pc + dc
+            if w.open(nr, nc):
+                pr, pc = nr, nc
+                steps += 1
+                hist.append((pr, pc, INV[di]))
+            else:
+                return False
+        return True
 
-def taken_index(node, steps):
-    """这条 if 链里，程序真会走第几条（0 起）—— 靠各条件行的 cond 判定。"""
-    for bi, line in enumerate(node["lines"]):
-        s = _step_first(steps, line)
-        if _is_else_header(node["headers"][bi]):
-            return bi                      # else 是兜底
-        if s is not None and s.get("cond") is True:
-            return bi                      # 第一个为真的条件把它拦下
-    # 走到尾：没有 else 且全假 → 整条跳过，没有实际分支
-    return None
+    def eval_pred(pred):
+        dr, dc = DIRS[di]
+        if pred == "front-open":
+            return w.open(pr + dr, pc + dc)
+        if pred == "front-wall":
+            return not w.open(pr + dr, pc + dc)
+        if pred == "left-open":
+            ldi = (di - 1) % 4
+            lr, lc = DIRS[ldi]
+            return w.open(pr + lr, pc + lc)
+        if pred == "left-wall":
+            ldi = (di - 1) % 4
+            lr, lc = DIRS[ldi]
+            return not w.open(pr + lr, pc + lc)
+        if pred == "right-open":
+            rdi = (di + 1) % 4
+            rr, rc = DIRS[rdi]
+            return w.open(pr + rr, pc + rc)
+        if pred == "right-wall":
+            rdi = (di + 1) % 4
+            rr, rc = DIRS[rdi]
+            return not w.open(pr + rr, pc + rc)
+        return False
 
+    def run_seq(seq):
+        nonlocal ok
+        for bid in seq:
+            b = byid[bid]
+            if b["type"] == "move":
+                if not apply_move(b["op"]):
+                    ok = False
+                    return
+            elif b["type"] == "chain":
+                chosen = None
+                for cond in b["conds"]:
+                    if eval_pred(cond["pred"]):
+                        chosen = cond
+                        break
+                if chosen is not None:
+                    run_seq(chosen["then"])
+                else:
+                    run_seq(b.get("else", []))
+                if not ok:
+                    return
+            if not ok:
+                return
 
-def label_of(code, line):
-    return code[line].strip()
-
-
-def branch_lines(code, node, bi):
-    """某条分支的头 + 其 body 的代码行号（用于界面置灰高亮）。"""
-    out = [node["lines"][bi]]
-    seg = node["bodies"][bi]
-    top = node["lines"][bi] + 1
-    # body 里全是字符串（平面行），逐行取行号；不展开子分支（死路高亮头部已够）
-    cur = top
-    for item in seg:
-        if isinstance(item, str):
-            out.append(cur)
-        cur += 1
-    return out
+    run_seq(program)
+    on_goal = (pr, pc) == w.goal
+    return (ok, on_goal, steps, hist)
 
 
 # ---------------------------------------------------------------------------
-# 地图布局：把一串岔路画成「巷道」
+# 模板（路径驱动）：每关给一条确定的格路径 + 起点朝向。
+# 脚本用这条路径“挖”出迷宫（路径格开路、其余填墙），路径终点放 G，起点放 S，
+# 然后由算法把路径切成移动指令流，并在第一个转向处注入一条 if (front-wall) 分支。
+# 迷宫由“墙包围一条 1 格宽走廊”构成，因此折角点前方必然是墙 —— front-wall 成立。
 # ---------------------------------------------------------------------------
 
-def build_map(code, steps, executed):
-    """executed: 按执行顺序排好的一串决策节点（都执行过且已定 taken）。
-
-    返回 (rows, regions)：
-      rows: 字符格面 ['#','.','o','S','G']
-      regions: 每个岔路口的几何信息，界面按它画走廊/路牌/陷阱。
-    """
-    W = CORRIDOR
-    # 执行顺序：决策节点先排好序，再定列
-    cur = 2
-    metas = []
-    for node in executed:
-        tk = taken_index(node, steps)
-        if tk is None:
-            raise SystemExit("关卡某条 if 链没有 else 且全假：" + repr(node["headers"]))
-        lc = cur
-        rc = lc + W + 1
-        branches = []
-        for bi in range(len(node["lines"])):
-            branches.append({
-                "label": label_of(code, node["lines"][bi]),
-                "taken": (bi == tk),
-                "dead": (bi != tk),
-            })
-        metas.append({"line": node["lines"][0], "lc": lc, "rc": rc, "branches": branches})
-        cur = rc + 2
-    goal = cur + 1
-    maxk = max((len(m["branches"]) for m in metas), default=1)
-
-    g = {}
-    for r in range(maxk + 1):
-        for c in range(goal + 1):
-            g[(r, c)] = "#"
-    for c in range(goal + 1):
-        g[(0, c)] = "."                      # 一条横向的主干道
-    g[(0, 0)] = "S"
-    g[(0, goal)] = "G"
-    for m in metas:
-        k = len(m["branches"])
-        lc, rc = m["lc"], m["rc"]
-        for r in range(k + 1):               # 左/右竖刺：贯通 0..k 行
-            g[(r, lc)] = g[(r, rc)] = "."
-        for bi, b in enumerate(m["branches"]):
-            row = bi + 1
-            for c in range(lc + 1, lc + W + 1):
-                g[(row, c)] = "."            # 每条分支的走廊
-            if b["taken"]:
-                for c in (lc + 2, lc + 3):   # 正确分支上放两枚金币
-                    g[(row, c)] = "o"
-    rows = []
-    for r in range(maxk + 1):
-        rows.append("".join(g[(r, c)] for c in range(goal + 1)))
-    return rows, metas
-
-
-def explain_for(node, steps, code, tk):
-    if tk is None:
-        return "整条 if 链没有一个条件成立，程序直接跳过。"
-    heading = node["headers"][tk]
-    if _is_else_header(heading):
-        return "前面的条件都不成立，所以程序走了 else 分支（%s）。" % heading.strip()
-    s = _step_first(steps, node["lines"][tk])
-    val = s.get("cond") if s else None
-    return "条件 %s 为 %s，所以程序走进这条分支（%s）。" % (
-        heading.strip(), "真(True)" if val else "假(False)", heading.strip())
-
-
-# ---------------------------------------------------------------------------
-# 题库
-# ---------------------------------------------------------------------------
-LEVELS = [
-    {
-        "id": "b01", "title": "生死开关", "tip": "score 够不够格，走对哪条路？",
-        "code": [
-            'score = 5',
-            'if score >= 6:',
-            '    grade = "pass"',
-            'else:',
-            '    grade = "fail"',
-            'print(grade)',
-        ],
-    },
-    {
-        "id": "b02", "title": "奇偶分流", "tip": "偶数走 if，奇数走 else。",
-        "code": [
-            'n = 10',
-            'if n % 2 == 0:',
-            '    tag = "even"',
-            'else:',
-            '    tag = "odd"',
-            'print(tag)',
-        ],
-    },
-    {
-        "id": "b03", "title": "三岔路", "tip": "elif 一条一条拦，最先成立的那个才走。",
-        "code": [
-            'x = 7',
-            'if x < 5:',
-            '    size = "small"',
-            'elif x < 10:',
-            '    size = "medium"',
-            'else:',
-            '    size = "large"',
-            'print(size)',
-        ],
-    },
-    {
-        "id": "b04", "title": "门里有门", "tip": "先判外面的 if，进了门再判里面的。",
-        "code": [
-            'n = 8',
-            'if n > 5:',
-            '    if n > 9:',
-            '        g = "big"',
-            '    else:',
-            '        g = "mid"',
-            'else:',
-            '    g = "small"',
-            'print(g)',
-        ],
-    },
-    {
-        "id": "b05", "title": "加一把锁", "tip": "and 要两个都成立才算 True。",
-        "code": [
-            'age = 16',
-            'has_id = True',
-            'if age >= 18 and has_id:',
-            '    can = "yes"',
-            'else:',
-            '    can = "no"',
-            'print(can)',
-        ],
-    },
-    {
-        "id": "b06", "title": "老路新走", "tip": "嵌套 + 多分支混在一起，别走岔。",
-        "code": [
-            't = 82',
-            'if t >= 90:',
-            '    rank = "A"',
-            'elif t >= 80:',
-            '    if t == 82:',
-            '        rank = "B+"',
-            '    else:',
-            '        rank = "B"',
-            'else:',
-            '    rank = "C"',
-            'print(rank)',
-        ],
-    },
+TEMPLATES = [
+    # m01：直走 2 格，右折后再直走 1 格到终点（先直后转）。
+    {"id": "m01", "dir": "E", "path": [(1, 1), (1, 2), (1, 3), (2, 3), (2, 4)]},
+    # m02：直角单拐：直走 2 格右折 1 格到终点。
+    {"id": "m02", "dir": "E", "path": [(1, 1), (1, 2), (1, 3), (2, 3)]},
+    # m03：先直走 1 格，下折再走 3 格到终点。
+    {"id": "m03", "dir": "E", "path": [(1, 1), (1, 2), (2, 2), (3, 2), (3, 3), (3, 4)]},
+    # m04：先折向下，再向右，成 Z 形。
+    {"id": "m04", "dir": "E", "path": [(1, 1), (2, 1), (3, 1), (3, 2), (3, 3)]},
+    # m05：较长直道 + 下拐（直走 3 格再向下 2 格）。
+    {"id": "m05", "dir": "E", "path": [(1, 1), (1, 2), (1, 3), (1, 4), (2, 4), (3, 4)]},
 ]
 
 
-def collect_executed(code, steps):
-    """收集所有『真会执行』的 if 链，按执行顺序排好（含嵌套）。"""
-    tree = parse_blocks(code)
-    nodes = []
-    def walk(items):
-        for it in items:
-            if isinstance(it, dict):
-                s = _step_first(steps, it["lines"][0])
-                if s is not None:
-                    nodes.append(it)
-                for body in it["bodies"]:
-                    walk(body)
-    walk(tree)
-    # 按首个头的执行先后排序
-    nodes.sort(key=lambda nd: steps.index(_step_first(steps, nd["lines"][0])))
-    return nodes
+def maze_from_path(path, pad=2):
+    """由格路径生成字符迷宫（边界一圈留 pad，其余墙，路径挖成路）。"""
+    rs = [p[0] for p in path]
+    cs = [p[1] for p in path]
+    h = max(rs) + 1 + pad
+    w = max(cs) + 1 + pad
+    g = [["#"] * w for _ in range(h)]
+    for (r, c) in path:
+        g[r][c] = "."
+    s = path[0]
+    t = path[-1]
+    g[s[0]][s[1]] = "S"
+    g[t[0]][t[1]] = "G"
+    return ["".join(row) for row in g]
 
 
-def build():
-    out = []
-    for lv in LEVELS:
-        code = lv["code"]
-        steps, printed = trace_of(code)
-        executed = collect_executed(code, steps)
-        rows, regions = build_map(code, steps, executed)
-        # 讲解放进每个岔路口，界面答错时展示
-        for m, node in zip(regions, executed):
-            tk = taken_index(node, steps)
-            m["explain"] = explain_for(node, steps, code, tk)
-            for b in m["branches"]:
-                b["explain"] = m["explain"]
-        entry = {
-            "id": lv["id"],
-            "code": code,
-            "steps": steps,
-            "timer": dict(TIMER),
-            "map": {
-                "rows": rows,
-                "cols": max(len(r) for r in rows),
-                "regions": regions,
-            },
-        }
-        for b in regions:
-            if not any(x["taken"] for x in b["branches"]):
-                raise SystemExit("%s：有个岔路口没有正确分支" % lv["id"])
-        out.append(entry)
-    return out
+def dir_of(dr, dc):
+    for i, (x, y) in enumerate(DIRS):
+        if x == dr and y == dc:
+            return i
+    return None
+
+
+def path_to_moves(path, start_dir):
+    """把格路径转成前进/转向指令流，返回 (moves, end_dir)。
+    不考虑原地转向到同格的合并（那在 chain 块里做）。"""
+    moves = []
+    di = DIRMAP[start_dir]
+    prev = None
+    for step in path:
+        r, c = step
+        if prev is None:
+            prev = step
+            continue
+        dr, dc = r - prev[0], c - prev[1]
+        want = dir_of(dr, dc)
+        # 转向：就近（L=-1 / R=+1），最多转一次（模板保证无 180 度急转）
+        delta = (want - di) % 4
+        if delta == 3:
+            di = (di - 1) % 4
+            moves.append("L")
+        elif delta == 1:
+            di = (di + 1) % 4
+            moves.append("R")
+        elif delta == 2:
+            # 掉头：模板不应出现；保守地 L L
+            di = (di - 1) % 4
+            moves.append("L")
+            di = (di - 1) % 4
+            moves.append("L")
+        moves.append("F")
+        prev = step
+    return moves, di
+
+
+# ---------------------------------------------------------------------------
+# 从移动指令流 -> 块 & 程序
+# ---------------------------------------------------------------------------
+
+PRED_VIABLE = ("front-wall", "front-open", "left-wall", "right-wall")
+
+
+def build_level(lv):
+    """给定 template（含 path/dir/title/tip），构造迷宫、块、answer，并自校验。
+
+    程序结构（确定性）：
+      1. 由路径算移动指令流 moves（path_to_moves）。
+      2. 找到第一个转向点下标 ti（L 或 R）。ti=0 表示起点就要转向。
+      3. program = [moves[:ti] 平铺为 move]  +  chain(if front-wall → turn+F else 直走F)
+                  + [moves[ti+2:] 平铺为 move]。
+         chain 的 then 取 moves[ti:ti+2]（该转向 + 紧邻的一次前进 F）；else 放一个直走 F
+         （正解是 to No 撞墙，但 else 只在 front-wall 为假才走；折角处前方必为墙，故 else 不触发）。
+      4. 干扰块：多放一个反方向的转向 move（用不到）。
+    """
+    path = lv["path"]
+    start_dir = lv["dir"]
+    rows = maze_from_path(path)
+    moves, _ = path_to_moves(path, start_dir)
+
+    # 找第一个转向点
+    ti = -1
+    for i, op in enumerate(moves):
+        if op in ("L", "R"):
+            ti = i
+            break
+    if ti < 0:  # 没转向？退化成纯 move（仍可通关，但没有 if，出题上我们尽量避免）
+        ti = 0
+        moves = ["F"] * len(path[1:])
+
+    blocks = []
+    program = []
+    bid = 0
+
+    def make_move(op):
+        nonlocal bid
+        bid += 1
+        b = {"id": "b%d" % bid, "type": "move", "op": op}
+        blocks.append(b)
+        return b["id"]
+
+    # chain 内 then 的移动（转向 + 前进）
+    then_moves = moves[ti:ti + 2]
+    then_ids = [make_move(op) for op in then_moves]
+    else_id = make_move("F")                       # else: 直走（折角处前方是墙，不会真走）
+    bid += 1
+    chain_id = "c%d" % bid
+    blocks.append({
+        "id": chain_id,
+        "type": "chain",
+        "conds": [{"pred": "front-wall", "then": then_ids}],
+        "else": [else_id],
+    })
+
+    # 前半（转向点之前，全部是 F）
+    pre = moves[:ti]
+    post = moves[ti + 2:]
+    for op in pre:
+        program.append(make_move(op))
+    program.append(chain_id)
+    for op in post:
+        program.append(make_move(op))
+
+    # 干扰块：一个反方向转向 + 一个直走，用不到也能通关
+    distractors = []
+    used_ops = set(then_moves)
+    for op in ("L", "R"):
+        if op not in used_ops:
+            bid += 1
+            d = {"id": "d%d" % bid, "type": "move", "op": op}
+            blocks.append(d)
+            distractors.append(d["id"])
+            break
+
+    # 自校验：脚本内解释器跑一遍 answer，必须到终点
+    ok, on_goal, steps, hist = run_program(rows, blocks, program)
+    if not (ok and on_goal):
+        raise SystemExit("关卡 %s 正解跑不通：ok=%s on_goal=%s moves=%s" % (lv["id"], ok, on_goal, moves))
+
+    return {
+        "id": lv["id"],
+        "title": TITLE[lv["id"]],
+        "tip": TIP[lv["id"]],
+        "timer": {"base": 20, "per": 8},
+        "map": {
+            "rows": rows,
+            "cols": max(len(r) for r in rows),
+            "start": {"r": path[0][0], "c": path[0][1], "dir": start_dir},
+            "goal": {"r": path[-1][0], "c": path[-1][1]},
+        },
+        "blocks": blocks,
+        "answer": program,
+        "distractors": distractors,
+        "solutionSteps": steps,
+    }
 
 
 def main():
-    levels = build()
+    outs = []
+    for lv in TEMPLATES:
+        outs.append(build_level(lv))
     data = {
-        "_generatedBy": "tools/branch-levels.py —— 分支/地图/金币/陷阱都由真 CPython 跑出来，别手改；改题请改脚本再重跑",
-        "levels": levels,
+        "_generatedBy": "tools/branch-levels.py —— 迷宫/块/正解都由脚本算出来并自校验，别手改；改题请改脚本再重跑",
+        "levels": outs,
     }
     path = os.path.normpath(OUT)
     os.makedirs(os.path.dirname(path), exist_ok=True)
@@ -359,14 +337,12 @@ def main():
         json.dump(data, f, ensure_ascii=False, indent=2)
         f.write("\n")
     print("写了 %s" % os.path.relpath(path))
-    for lv in levels:
-        print("\n  %s —— %d 个岔口, %d 行代码" % (
-        lv["id"], len(lv["map"]["regions"]), len(lv["code"])))
+    for lv in outs:
+        print("\n  %s(%s) —— 正解 %d 步" % (lv["id"], lv["title"], lv["solutionSteps"]))
         for r in lv["map"]["rows"]:
             print("    " + r)
-        for rg in lv["map"]["regions"]:
-            tk = next(b["label"] for b in rg["branches"] if b["taken"])
-            print("    岔口(col %d) 走 -> %s   %s" % (rg["lc"], tk, rg["explain"]))
+        print("    blocks:", [(b["id"], b.get("op") or b["type"]) for b in lv["blocks"]])
+        print("    answer:", lv["answer"])
 
 
 if __name__ == "__main__":

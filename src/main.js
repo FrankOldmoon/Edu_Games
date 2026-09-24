@@ -118,7 +118,7 @@ const GAMES = [
   },
   {
     name: "Python Branch Dungeon",
-    desc: "A little explorer walks a dungeon where every fork is an if / elif / else — pick the corridor the program really takes, dodge the dead branches, grab the coins",
+    desc: "Snap if/elif/else sensing blocks and forward/left/right moves into a program, then run it — a little explorer walks the maze on its own. Reach the exit without bumping a wall",
     url: "./games/branch-trace/",
     thumb: branchThumb,
     tag: "HTML5",

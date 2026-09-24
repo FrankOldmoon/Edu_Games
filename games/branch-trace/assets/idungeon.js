@@ -1,160 +1,121 @@
-/* 分支地牢的引擎：把 levels.json 里的「主干道 + 岔路」画成玩家走着走的格子地图，
-   角色的移动就是选择题的作答。
+/* 分支地牢(新玩法)引擎：一个带朝向的角色在一片迷宫里走，走到 ★ 终点就过关。
 
-   核心机制：
-   · 整关是一条从左到右的主干道，每个 if/elif/else 是一个岔路口。
-   · 岔路口有几条分支就有几条并排的走廊；程序只走其中一条（真 CPython 算好，写进 levels.json）。
-   · 玩家用方向键/WASD（或点击）把角色走进某条走廊 = 选那条分支。
-     走对了沿路捡金币、从右竖刺汇回主干道、继续往前；走错了踩进死走廊的陷阱，
-     弹回岔口、扣时，并把那条死分支标灰 + 讲清楚为什么不是它。
-   · 没走完当前岔口时主干道被顶住，角色必须下到走廊里选 —— 逼你做人而不是绕过去。 */
+   玩法不是手动走迷宫，而是“拼程序”：
+   · 每关给一组方块—— if/elif/else 分支块（迷宫感知：前方/左方/右方是否有路）
+     和移动指令块（前进 F、左转 L、右转 R）。
+   · 玩家把手头的块自由拼成一段程序（palette 加进 program，可拖拽重排、可删）。
+   · 点「执行」，程序从头跑到尾，角色按程序结果自动走；走到终点即通关。
 
-import hljs from "highlight.js";
-
-function esc(s) {
-  return String(s === undefined || s === null ? "" : s)
-    .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-}
+   数据和正解都是出题脚本（tools/branch-levels.py）用确定算法算出来的，
+   浏览器只按 levels.json 的 blocks/map 解释执行，一行 Python 都不跑。 */
 
 function createDungeon(opts) {
   const host = opts.host;
   const lv = opts.level;
   const t = opts.t;
   const map = lv.map;
+  const blocksBy = {};
+  (lv.blocks || []).forEach(function (b) { blocksBy[b.id] = b; });
   const onWin = opts.win || function () {};
-  const onTrap = opts.lose || function () {};
+  const onFail = opts.fail || function () {};
 
   const rows = map.rows.map(function (s) { return s.split(""); });
-  const rooms = map.regions || [];
+  const DIRS = [[-1, 0], [0, 1], [1, 0], [0, -1]]; // N E S W
+  const DIRCH = ["N", "E", "S", "W"];
 
-  let pr = 0, pc = 0, gr = 0, gc = 0;
-  const coins = {};
-  let coinTotal = 0;
-  rows.forEach(function (rowArr, r) {
-    rowArr.forEach(function (ch, c) {
-      if (ch === "S") { pr = r; pc = c; rows[r][c] = "."; }
-      else if (ch === "G") { gr = r; gc = c; rows[r][c] = "."; }
-      else if (ch === "o") { coins[r + "," + c] = true; coinTotal++; rows[r][c] = "."; }
-    });
-  });
+  let pr = map.start.r, pc = map.start.c, pdir = DIRCH.indexOf(map.start.dir);
+  const gr = map.goal.r, gc = map.goal.c;
 
-  let solved = 0;            // 已经走通几个岔口
-  let firstTrySolved = 0;    // 其中几个是第一次走对的
-  let coinsGot = 0;
-  let gotGoal = false;
+  /* 程序区：顶层块 id 有序序列 */
+  let program = [];
 
-  function branchRow(bi) { return bi + 1; }
-  const curRegion = function () { return solved < rooms.length ? rooms[solved] : null; };
+  /* 运行时状态 */
+  let running = false;
+  let timer = null;
+  let attempts = 0;          // 执行次数（本关）
+  let won = false;
 
-  /* 是否"当前岔口"的死走廊第一格（陷阱）。不清楚陷阱在视线里提前暴露死路。 */
-  function isTrapCell(r, c, cur) {
-    if (!cur) return false;
-    if (c !== cur.lc + 1) return false;
-    for (let bi = 0; bi < cur.branches.length; bi++) {
-      if (branchRow(bi) === r && cur.branches[bi].dead) return true;
+  function open(r, c) {
+    if (r < 0 || c < 0 || r >= rows.length) return false;
+    if (c >= (rows[r] || []).length) return false;
+    return rows[r][c] !== "#";
+  }
+  function cellCh(r, c) {
+    if (r < 0 || c < 0 || r >= rows.length) return "#";
+    if (c >= (rows[r] || []).length) return "#";
+    return rows[r][c];
+  }
+  function onGoal() { return pr === gr && pc === gc; }
+
+  /* ---------------------------- 谓词 ---------------------------- */
+  function evalPred(pred) {
+    const d = DIRS[pdir];
+    const dr = d[0], dc = d[1];
+    const ldi = (pdir + 3) % 4, rdi = (pdir + 1) % 4;
+    const ld = DIRS[ldi], rd = DIRS[rdi];
+    switch (pred) {
+      case "front-open": return open(pr + dr, pc + dc);
+      case "front-wall": return !open(pr + dr, pc + dc);
+      case "left-open": return open(pr + ld[0], pc + ld[1]);
+      case "left-wall": return !open(pr + ld[0], pc + ld[1]);
+      case "right-open": return open(pr + rd[0], pc + rd[1]);
+      case "right-wall": return !open(pr + rd[0], pc + rd[1]);
+      default: return false;
     }
-    return false;
   }
 
-  function canMove(r, c) {
-    if (r < 0 || c < 0 || r >= rows.length || c >= (rows[0] || []).length) return false;
-    if (rows[r][c] === "#") return false;
-    const cur = curRegion();
-    if (cur) {
-      if (c > cur.rc) return false;                            // 没走完这道岔口，前面过不去
-      if (r === 0 && c > cur.lc && c <= cur.rc) return false;  // 主干道被封 → 逼你下走廊选
+  /* 返回执行一个块是否成功移动（撞墙/越界 false）。dir-move 不失败。 */
+  function applyOp(op) {
+    if (op === "L") { pdir = (pdir + 3) % 4; return true; }
+    if (op === "R") { pdir = (pdir + 1) % 4; return true; }
+    if (op === "F") {
+      const d = DIRS[pdir];
+      const nr = pr + d[0], nc = pc + d[1];
+      if (!open(nr, nc)) return false;
+      pr = nr; pc = nc;
+      return true;
     }
     return true;
   }
 
-  function currentVars() {
-    const cur = curRegion();
-    const last = lv.steps[lv.steps.length - 1];
-    if (!cur) return last ? last.vars : {};
-    for (let i = 0; i < lv.steps.length; i++) {
-      if (lv.steps[i].line === cur.line) return lv.steps[i].vars || {};
-    }
-    return {};
-  }
-
-  function tryStep(r, c) {
-    if (gotGoal) return false;
-    if (!canMove(r, c)) return false;
-    const cur = curRegion();
-
-    if (isTrapCell(r, c, cur)) {
-      cur.trapped = true;                 // 这道岔口第一次没走对
-      onTrap(cur);                        // 扣时，game.js 管
-      pr = 0; pc = cur.lc;                // 弹回岔口主干道
-      draw();
-      return false;
-    }
-
-    pr = r; pc = c;
-    if (coins[r + "," + c]) { coins[r + "," + c] = false; coinsGot++; }
-
-    /* 从走廊走到右竖刺、汇回主干道 = 这道岔口走通了 */
-    if (cur && r > 0 && c === cur.rc) {
-      if (!cur.trapped) firstTrySolved++;
-      solved++;
-    }
-
-    draw();
-    if (pr === gr && pc === gc) {
-      gotGoal = true;
-      onWin();
-      return false;
-    }
-    return true;
-  }
-
-  function stepTo(dr, dc) { return tryStep(pr + dr, pc + dc); }
-
-  function pathTo(tr, tc) {
-    const w = (rows[0] || []).length, h = rows.length;
-    const prev = {};
-    const seen = {};
-    seen[pr + "," + pc] = true;
-    const queue = [[pr, pc]];
-    let found = false;
-    while (queue.length) {
-      const p = queue.shift();
-      const r = p[0], c = p[1];
-      if (r === tr && c === tc) { found = true; break; }
-      [[1, 0], [-1, 0], [0, 1], [0, -1]].forEach(function (d) {
-        const nr = r + d[0], nc = c + d[1];
-        const key = nr + "," + nc;
-        if (nr === tr && nc === tc) {
-          if (!seen[key]) { seen[key] = true; prev[key] = r + "," + c; queue.push([nr, nc]); }
-          return;
+  /* 展开程序（含 chain 内分支）执行一遍，把每步之后的 [r,c,dir] 记进 frames。
+     返回 false 表示撞墙失败（角色停在撞墙前那一格）。
+     撞墙时也会把失败帧记下，便于回放时停在原地做提示。 */
+  function execSeq(seq, frames) {
+    for (let i = 0; i < seq.length; i++) {
+      const id = seq[i];
+      const b = blocksBy[id];
+      if (!b) continue;
+      if (b.type === "move") {
+        if (!applyOp(b.op)) return false;
+        frames.push([pr, pc, pdir]);
+      } else if (b.type === "chain") {
+        let chosen = null;
+        for (let j = 0; j < b.conds.length; j++) {
+          if (evalPred(b.conds[j].pred)) { chosen = b.conds[j]; break; }
         }
-        if (!canMove(nr, nc) || seen[key]) return;
-        seen[key] = true; prev[key] = r + "," + c; queue.push([nr, nc]);
-      });
+        const body = chosen ? chosen.then : (b.else || []);
+        if (!execSeq(body, frames)) return false;
+      }
     }
-    if (!found) return null;
-    const path = [];
-    let k = tr + "," + tc;
-    while (k !== pr + "," + pc) {
-      const bits = k.split(",");
-      path.unshift([Number(bits[0]), Number(bits[1])]);
-      k = prev[k];
-    }
-    return path;
+    return true;
   }
 
-  function moveClick(r, c) {
-    if (r === pr && c === pc) return;
-    const p = pathTo(r, c);
-    if (p) for (let i = 0; i < p.length; i++) if (!tryStep(p[i][0], p[i][1])) break;
+  /* 从起点整体跑一遍程序，返回 { ok, frames, onGoal }。 */
+  function simulate() {
+    pr = map.start.r; pc = map.start.c; pdir = DIRCH.indexOf(map.start.dir);
+    const frames = [[pr, pc, pdir]];
+    const ok = execSeq(program, frames);
+    return { ok: ok, frames: frames, onGoal: pr === gr && pc === gc };
   }
 
-  /* ------------------------------- 渲染 ------------------------------- */
+  /* ---------------------------- 渲染：顶栏 ---------------------------- */
 
   const dungeon = document.createElement("div");
   dungeon.className = "dungeon";
 
   const boardArea = document.createElement("div");
+  boardArea.className = "left";
   const note = document.createElement("p");
   note.className = "stagenote";
   note.innerHTML = t("ui.stageNote");
@@ -162,158 +123,316 @@ function createDungeon(opts) {
   const board = document.createElement("div");
   board.className = "board";
   boardArea.appendChild(board);
-  const gateCard = document.createElement("div");
-  gateCard.className = "gate";
-  boardArea.appendChild(gateCard);
   const mv = document.createElement("p");
   mv.className = "movehint";
   mv.textContent = t("ui.moveHint");
   boardArea.appendChild(mv);
 
+  /* ---------------------------- 渲染：右侧摆块 ---------------------------- */
+
   const side = document.createElement("div");
   side.className = "side";
-  const varCard = document.createElement("div");
-  varCard.className = "card";
-  varCard.innerHTML = "<h4>" + esc(t("ui.vars")) + "</h4><div class=\"vars\"></div>";
-  side.appendChild(varCard);
-  const coinCard = document.createElement("div");
-  coinCard.className = "card coinsline";
-  side.appendChild(coinCard);
-  const codeCard = document.createElement("div");
-  codeCard.className = "card codecard";
-  codeCard.innerHTML = "<h4>" + esc(t("ui.codeTitle")) + "</h4><div class=\"code\"></div>";
-  side.appendChild(codeCard);
+
+  const paletteCard = document.createElement("div");
+  paletteCard.className = "card";
+  paletteCard.innerHTML = "<h4>" + esc(t("ui.palette")) + "</h4><div class=\"palette\"></div>";
+  side.appendChild(paletteCard);
+
+  const progCard = document.createElement("div");
+  progCard.className = "card progcard";
+  progCard.innerHTML = "<h4>" + esc(t("ui.yourProgram")) + "</h4>" +
+    "<div class=\"program\"><div class=\"empty\">" + esc(t("ui.programEmpty")) + "</div></div>" +
+    "<div class=\"progbtns\">" +
+    "  <button class=\"btn runbtn\" type=\"button\">" + esc(t("ui.run")) + "</button>" +
+    "  <button class=\"btn clearbtn\" type=\"button\">" + esc(t("ui.clear")) + "</button>" +
+    "</div>" +
+    "<div class=\"runstatus\"></div>";
+  side.appendChild(progCard);
+
+  const probCard = document.createElement("div");
+  probCard.className = "card";
+  probCard.innerHTML = "<h4>" + esc(t("ui.problem")) + "</h4><div class=\"prob\"></div>";
+  side.appendChild(probCard);
 
   dungeon.appendChild(boardArea);
   dungeon.appendChild(side);
   host.appendChild(dungeon);
 
+  /* ---------------------------- 块渲染 label ---------------------------- */
+
+  function predLabel(pred) {
+    const map = {
+      "front-open": t("ui.predFrontOpen"), "front-wall": t("ui.predFrontWall"),
+      "left-open": t("ui.predLeftOpen"), "left-wall": t("ui.predLeftWall"),
+      "right-open": t("ui.predRightOpen"), "right-wall": t("ui.predRightWall"),
+    };
+    return map[pred] || pred;
+  }
+
+  /* 渲染一个块。pick=true 时给根元素打上 data-pick —— palette 里只有顶层块可被
+     点击加入（chain 内部的子块只是展示，点它们也会落到外层 chain 上）。 */
+  function blockHtml(id, editable, pick) {
+    const b = blocksBy[id];
+    if (!b) return "<span class=\"blk unknown\">?</span>";
+    const ops = { F: t("ui.F"), L: t("ui.L"), R: t("ui.R") };
+    const opicon = { F: "↗", L: "↰", R: "↱" };
+    const del = editable ? "<button class=\"del\" title=\"" + esc(t("ui.remove")) + "\">✕</button>" : "";
+    const pickAttr = pick ? " data-pick=\"1\"" : "";
+    if (b.type === "move") {
+      return "<span class=\"blk move\"" + pickAttr + " data-id=\"" + id + "\">" +
+        "<b>" + esc(ops[b.op]) + "</b><span class=\"opicon\">" + (opicon[b.op] || "") + "</span>" +
+        del + "</span>";
+    }
+    if (b.type === "chain") {
+      let html = "<span class=\"blk chain\"" + pickAttr + " data-id=\"" + id + "\">" +
+        "<b class=\"kw\">" + esc(t("ui.if")) + "</b> " + esc(predLabel(b.conds[0] ? b.conds[0].pred : "")) +
+        "<span class=\"then\">" +
+        (b.conds[0] ? b.conds[0].then.map(function (cid) { return blockHtml(cid, false, false); }).join(" ") : "") +
+        "</span>";
+      if (b.else && b.else.length) {
+        html += "<span class=\"kw else\">" + esc(t("ui.else")) + "</span>" +
+          "<span class=\"then\">" + b.else.map(function (cid) { return blockHtml(cid, false, false); }).join(" ") + "</span>";
+      }
+      html += del + "</span>";
+      return html;
+    }
+    return "";
+  }
+
+  /* palette 里展示的块：只列顶层块，点任意位置都选中整块 */
+  function renderPalette() {
+    const box = paletteCard.querySelector(".palette");
+    box.innerHTML = (lv.blocks || [])
+      .map(function (b) { return blockHtml(b.id, false, true); })
+      .join(" ");
+  }
+
+  function render(extra) {
+    drawBoard();
+    renderProgram();
+    if (extra) drawStatus(extra);
+  }
+
+  /* ---------------------------- 渲染：棋盘 ---------------------------- */
+
   function drawBoard() {
     board.innerHTML = "";
-    const cur = curRegion();
-    rows.forEach(function (rowArr, r) {
-      const rowDiv = document.createElement("div");
-      rowDiv.className = "row";
-      rowArr.forEach(function (cellCh, c) {
-        const cell = document.createElement("div");
-        let cls = "cell";
-        if (cellCh === "#") {
-          cls += " wall";
-        } else {
-          if (cur && c === cur.lc && r > 0 && r <= cur.branches.length) cls += " dec";
-          else if (coins[r + "," + c]) cls += " coin";
-          else if (isTrapCell(r, c, cur)) cls += " trap";
-        }
-        if (r === gr && c === gc) cls += " goal";
+    board.dataset.locked = running ? "1" : "0";
+    const h = rows.length, w = (rows[0] || []).length;
+    const size = 40;
+    board.style.width = (w * size) + "px";
+    board.style.height = (h * size) + "px";
+    for (let r = 0; r < h; r++) {
+      for (let c = 0; c < w; c++) {
+        const el2 = document.createElement("div");
+        el2.className = "tile " + (cellCh(r, c) === "#" ? "wall" : "floor");
+        el2.style.left = (c * size) + "px";
+        el2.style.top = (r * size) + "px";
+        el2.style.width = size + "px";
+        el2.style.height = size + "px";
+        if (cellCh(r, c) === "S") el2.textContent = "S";
+        if (r === gr && c === gc) el2.textContent = "★";
+        board.appendChild(el2);
+      }
+    }
+    /* 角色 */
+    const rob = document.createElement("div");
+    rob.className = "robot";
+    rob.style.left = (pc * size + size / 2) + "px";
+    rob.style.top = (pr * size + size / 2) + "px";
+    const body = document.createElement("div");
+    body.className = "body";
+    body.style.transform = "rotate(" + (pdir * 90) + "deg)";
+    rob.appendChild(body);
+    board.appendChild(rob);
+  }
 
-        if (pr === r && pc === c) {
-          cls += " player";
-          cell.innerHTML = "<span class=\"dot\"></span>";
-        } else if (coins[r + "," + c]) {
-          cell.textContent = "$";                        // 还没捡的金币
-        } else if (r === gr && c === gc) {
-          cell.textContent = "★";                        // 终点
-        }
-        cell.className = cls;
-        cell.addEventListener("click", function () { moveClick(r, c); });
-        rowDiv.appendChild(cell);
+  /* ---------------------------- 渲染：程序区 ---------------------------- */
+
+  function renderProgram() {
+    const box = progCard.querySelector(".program");
+    if (!program.length) {
+      box.innerHTML = "<div class=\"empty\">" + esc(t("ui.programEmpty")) + "</div>";
+    } else {
+      box.innerHTML = program.map(function (id, i) {
+        return "<div class=\"slot\" draggable=\"true\" data-idx=\"" + i + "\">" +
+          blockHtml(id, true, false) + "</div>";
+      }).join("");
+      wireDnD(box);
+    }
+  }
+
+  function wireDnD(box) {
+    let dragIdx = null;
+    const slots = box.querySelectorAll(".slot");
+    slots.forEach(function (slot, i) {
+      slot.addEventListener("dragstart", function (e) {
+        dragIdx = i;
+        slot.classList.add("drag");
+        try { e.dataTransfer.effectAllowed = "move"; e.dataTransfer.setData("text/plain", String(i)); } catch (err) {}
       });
-      board.appendChild(rowDiv);
+      slot.addEventListener("dragend", function () { slot.classList.remove("drag"); });
+      slot.addEventListener("dragover", function (e) { if (dragIdx !== null) e.preventDefault(); });
+      slot.addEventListener("drop", function (e) {
+        e.preventDefault();
+        if (dragIdx === null) return;
+        const from = dragIdx, to = i;
+        const arr = program.slice();
+        const [x] = arr.splice(from, 1);
+        arr.splice(to, 0, x);
+        program = arr;
+        dragIdx = null;
+        renderProgram();
+      });
+    });
+    /* 点 × 删除 */
+    box.querySelectorAll(".del").forEach(function (btn) {
+      btn.addEventListener("click", function (e) {
+        e.stopPropagation();
+        const slot = btn.closest(".slot");
+        const idx = Number(slot.dataset.idx);
+        program.splice(idx, 1);
+        renderProgram();
+      });
     });
   }
 
-  function drawGate() {
-    const cur = curRegion();
-    if (cur) {
-      gateCard.className = "gate";
-      let html = "<p class=\"gateq\">" + esc(t("ui.gateNote")) + "</p>";
-      let revealedExplain = "";
-      cur.branches.forEach(function (b, bi) {
-        const revealed = b.dead && cur.trapped;
-        if (revealed && !revealedExplain) revealedExplain = b.explain;
-        html += "<div class=\"branch" + (revealed ? " dead" : "") + "\">" +
-          "<span class=\"mark\">" + (revealed ? "✖" : "·") + "</span>" +
-          "<code>" + esc(b.label) + "</code></div>";
-      });
-      if (revealedExplain) {
-        html += "<div class=\"explain\">" + esc(t("ui.trapLine", { explain: revealedExplain })) + "</div>";
+  /* ---------------------------- probe / problem ---------------------------- */
+
+  function drawProblem() {
+    const box = probCard.querySelector(".prob");
+    box.innerHTML = "<p>" + esc(t("ui.problemText")) + "</p>" +
+      "<p class=\"preds\">" +
+      [["front-open", "front-wall"], ["left-open", "left-wall"], ["right-open", "right-wall"]]
+        .map(function (pair) {
+          return "<span class=\"pred\">" + esc(predLabel(pair[0])) + "</span>" +
+            "<span class=\"pred alt\">" + esc(predLabel(pair[1])) + "</span>";
+        }).join(" ");
+  }
+
+  /* ---------------------------- 执行 ---------------------------- */
+
+  function drawStatus(msg) {
+    const box = progCard.querySelector(".runstatus");
+    if (!msg) { box.innerHTML = ""; box.className = "runstatus"; return; }
+    box.textContent = msg.text || "";
+    box.className = "runstatus" + (msg.failed ? " bad" : "");
+  }
+
+  function stopRun() {
+    running = false;
+    if (timer) { clearTimeout(timer); timer = null; }
+  }
+
+  function doRun() {
+    if (running || won) return;
+    if (!program.length) { drawStatus({ text: t("ui.programEmpty"), failed: true }); return; }
+    attempts += 1;
+    running = true;
+    drawStatus();
+    /* 先在后台把整段程序跑完（这一步是权威结果），再按轨迹逐帧回放。 */
+    const res = simulate();
+    /* 回放前先回到起点 */
+    pr = map.start.r; pc = map.start.c; pdir = DIRCH.indexOf(map.start.dir);
+    render();
+
+    const STEP_MS = 220;
+    let fi = 0;
+    function playFrame() {
+      if (fi >= res.frames.length) {
+        running = false;
+        if (!res.ok) {
+          drawStatus({ text: t("ui.bump"), failed: true });
+          render();
+          onFail();
+        } else if (res.onGoal) {
+          won = true;
+          stopRun();
+          drawStatus({ text: t("ui.goal") });
+          render();
+          onWin();
+        } else {
+          drawStatus({ text: t("ui.notGoal") });
+        }
+        return;
       }
-      gateCard.innerHTML = html;
-      cur._revealedExplain = revealedExplain;
-    } else {
-      const done = solved >= rooms.length;
-      gateCard.className = "gate done";
-      gateCard.innerHTML = done
-        ? "<p class=\"gateq\">" + esc(t("ui.win")) + "</p>" +
-          "<p>" + esc(t("ui.allDone")) + "</p>"
-        : "";
+      const f = res.frames[fi++];
+      pr = f[0]; pc = f[1]; pdir = f[2];
+      drawBoard();
+      timer = setTimeout(playFrame, STEP_MS);
     }
+    timer = setTimeout(playFrame, STEP_MS);
   }
 
-  function drawSide() {
-    const v = currentVars();
-    const keys = Object.keys(v);
-    const vbox = varCard.querySelector(".vars");
-    vbox.innerHTML = keys.length
-      ? keys.map(function (k) {
-        return "<div class=\"v\"><b>" + esc(k) + "</b><span>" + esc(v[k]) + "</span></div>";
-      }).join("")
-      : "<div class=\"none\">…</div>";
-
-    coinCard.innerHTML = t("ui.coins", { n: coinsGot });
-
-    const code = lv.code || [];
-    const doneLines = {};
-    for (let i = 0; i < solved && i < rooms.length; i++) doneLines[rooms[i].line] = true;
-    const cur = curRegion();
-
-    /* 整段一起高亮（跨行的字符串/注释不会被拆坏），再按行切回每行一个 row */
-    let hl = "";
-    try {
-      hl = hljs.highlight(code.join("\n"), { language: "python" }).value;
-    } catch (e) {
-      hl = "";
-    }
-    let hlLines = hl.split("\n");
-    if (hlLines.length < code.length) {
-      while (hlLines.length < code.length) hlLines.push("");
-    }
-    if (hlLines.length > code.length) hlLines = hlLines.slice(0, code.length);
-
-    codeCard.querySelector(".code").innerHTML = code.map(function (src, li) {
-      const cls = doneLines[li] ? "ln ran" : (cur && cur.line === li ? "ln now" : "ln");
-      const body = src === "" ? " " : hlLines[li];
-      return "<div class=\"" + cls + "\"><span class=\"no\">" + (li + 1) + "</span>" +
-        "<span class=\"src\">" + body + "</span></div>";
-    }).join("");
+  function clearProgram() {
+    if (running) return;
+    program = [];
+    renderProgram();
+    drawStatus();
   }
 
-  function draw() {
-    drawBoard();
-    drawGate();
-    drawSide();
-  }
+  /* ---------------------------- 公共 API ---------------------------- */
+
+  dungeon.querySelector(".runbtn").addEventListener("click", doRun);
+  dungeon.querySelector(".clearbtn").addEventListener("click", clearProgram);
+  /* palette 点击 = 加入 program。用 [data-pick] 而不是 .blk：
+     chain 里嵌着子块，点子块也要落到外层整个 chain 上。 */
+  paletteCard.addEventListener("click", function (e) {
+    if (running) return;
+    const blk = e.target.closest("[data-pick]");
+    if (!blk) return;
+    const id = blk.dataset.id;
+    if (!id) return;
+    program.push(id);
+    renderProgram();
+  });
 
   function relocalize() {
-    mv.textContent = t("ui.moveHint");
     note.innerHTML = t("ui.stageNote");
-    varCard.innerHTML = "<h4>" + esc(t("ui.vars")) + "</h4><div class=\"vars\"></div>";
-    codeCard.innerHTML = "<h4>" + esc(t("ui.codeTitle")) + "</h4><div class=\"code\"></div>";
-    draw();
+    mv.textContent = t("ui.moveHint");
+    paletteCard.querySelector("h4").textContent = t("ui.palette");
+    progCard.querySelector("h4").textContent = t("ui.yourProgram");
+    progCard.querySelector(".empty") && (progCard.querySelector(".empty").textContent = t("ui.programEmpty"));
+    progCard.querySelector(".runbtn").textContent = t("ui.run");
+    progCard.querySelector(".clearbtn").textContent = t("ui.clear");
+    probCard.querySelector("h4").textContent = t("ui.problem");
+    renderProgram();
+    drawProblem();
+    renderPalette();
+    drawStatus();
   }
 
-  draw();
+  drawProblem();
+  renderPalette();
+  render();
 
   return {
-    stepTo: stepTo,
-    moveClick: moveClick,
+    run: doRun,
+    clear: clearProgram,
+    undo: function () {
+      if (running) return;
+      if (program.length) program.pop();
+      renderProgram();
+      drawStatus();
+    },
+    attempts: function () { return attempts; },
+    onGoal: onGoal,
     relocalize: relocalize,
-    lock: function () { gotGoal = true; },
-    solvedCount: function () { return solved; },
-    coins: function () { return coinsGot; },
-    total: function () { return rooms.length; },
-    firstTry: function () { return firstTrySolved; },
+    lock: function () { won = true; stopRun(); render(); },
+    done: function () { return won; },
+    solvedCount: function () { return won ? 1 : 0; },
+    /* 撞墙后回到起点重摆：保留程序与尝试次数，只把角色挪回去 */
+    rewind: function () {
+      stopRun();
+      pr = map.start.r; pc = map.start.c; pdir = DIRCH.indexOf(map.start.dir);
+      render();
+    },
   };
+}
+
+function esc(s) {
+  return String(s === undefined || s === null ? "" : s)
+    .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
 
 export default createDungeon;

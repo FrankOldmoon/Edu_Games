@@ -1,20 +1,17 @@
-/* Python 分支地牢 —— 简体中文。
-   键必须和 locales/en.js 完全对齐（en 是默认兼兜底，缺键就会显示英文）。
-   关卡内容（代码、地图、金币的落点、每关走哪个分支）在 levels.json 里，
-   由 tools/branch-levels.py 用真 Python 跑出来，不写在这儿。 */
+/* Python 分支地牢(新玩法：拼程序走迷宫) —— 简体中文。
+   键必须和 locales/en.js 完全对齐(en 是默认兼兜底，缺键就会显示英文)。
+   关卡内容(迷宫、块、正解)在 levels.json 里，由 tools/branch-levels.py 用算法算出来。 */
 
 export default {
   ui: {
     appTitle: "Python 分支地牢",
-    backToSite: "← 全部游戏",
 
-    lead: "这不再是一道道选择题 —— 你是一个走进地牢的角色。每个岔路口是一行 <b>if / elif / else</b>，程序只会走其中一条分支。靠上面给的<b>当前变量值</b>判断它会走哪条，然后把角色走进那条走廊。走对了沿路捡金币、往前走；走错了踩进死路的陷阱，扣时间，还能看到为什么它不是该走的那条。",
-    moveHint: "方向键 / WASD 移动，或点击想去的格子。",
-    gateNote: "当前岔路口：程序会走哪条分支？",
-    stageNote: "看左侧代码（<u>高亮</u>的这一行是要决策的 if/elif/else）+ 右侧当前变量，判断程序会走哪条分支，把角色走进去。走对捡金币、继续；走错踩陷阱、扣时。",
+    lead: "这是一段待你拼出来的程序。角色站在迷宫起点，手里有一张 <b>if / elif / else</b> 判断块（迷宫感知：前方/左方/右方是否有路）和若干 <b>前进 / 左转 / 右转</b> 移动块。把块拼成一段能带角色走到 ★ 终点的程序，点「执行」让它跑起来。",
+    moveHint: "点击右侧方块加入程序，可拖拽排序；Enter 执行，Backspace 删末尾。",
+    stageNote: "看迷宫和起点朝向，把 <b>if/elif/else</b> 判断块和 <b>前进/左转/右转</b> 移动块拼成一段程序，点「执行」让角色自动走。能在不撞墙的情况下走到 <b>★</b> 终点即过关。",
 
     howtoTitle: "❓ 怎么玩？",
-    howto: "角色就是「处理器」：每个岔路口是一条 if/elif/else。\n① 看右侧「当前变量」的值（程序跑到这里时变量长这样）。\n② 看左侧代码高亮的那一行，它就是现在要打的分支。\n③ 每条走廊 = 一个分支，把角色走进程序「真会走」的那条。\n④ 走对 → 沿走廊捡金币、推进到下一个岔口。\n⑤ 走错 → 踩进死走廊的陷阱，弹回、扣 5 秒，并说明为什么不是它。\n⑥ 走到最右边的 ★ 就是程序跑完了，过关！",
+    howto: "① 右侧「可用方块」列出本关能用的块：if 判断块 + 前进(F)/左转(L)/右转(R)。\n② 点击方块加入下面「我的程序」，可拖拽调整顺序、点 ✕ 删除。\n③ 点「执行」—— 程序从头跑到尾，角色按程序结果自动走。\n④ 前方/左方/右方是否有路，由 if 判断块在<b>它执行那一刻</b>读迷宫得到。\n⑤ 撞墙 = 程序不对，扣 5 秒；改块后再执行。\n⑥ 走到 ★ 终点 = 程序走通了，过关！",
 
     progress: "已通关 {done} / {total}",
     levelNo: "第 {n} 关",
@@ -32,17 +29,36 @@ export default {
     timeUp: "时间到",
     timeUpShort: "时间到",
 
-    coins: "金币 {n}",
-    vars: "当前变量",
-    codeTitle: "这段程序",
+    palette: "可用方块",
+    yourProgram: "我的程序",
+    programEmpty: "点上方方块加入程序…",
+    run: "▶ 执行",
+    clear: "清空",
+    remove: "删除此块",
+    problem: "本关可用判断",
+    problemText: "if 条件判断（基于<角色朝向>读迷宫周围）：",
 
-    trap: "踩到陷阱了！",
-    trapLine: "这条分支不是程序会走的 —— {explain}",
+    if: "if",
+    else: "else",
 
+    F: "前进", L: "左转", R: "右转",
+
+    predFrontOpen: "前方有路?",
+    predFrontWall: "前方是墙?",
+    predLeftOpen: "左方有路?",
+    predLeftWall: "左方是墙?",
+    predRightOpen: "右方有路?",
+    predRightWall: "右方是墙?",
+
+    bump: "撞墙了——程序不对，扣 5 秒，试试改改再执行。",
+    goal: "走到终点，过关！",
+    notGoal: "执行完毕，但没到 ★ 终点。",
+
+    attempts: "尝试 {n} 次",
     win: "走出地牢！",
-    perfect: "每个岔路口都一次走对",
-    partial: "{total} 个岔路口里 {ok} 个一次走对",
-    winLine: "{regions} 个岔口 · {coins} 金币 · 用时 {time}",
+    perfect: "一次执行就通关",
+    partial: "{total} 次尝试后通关",
+    winLine: "尝试 {attempts} 次 · 用时 {time}",
     next: "下一关 →",
     allDone: "全部完成 —— 回到关卡列表",
 
@@ -57,11 +73,10 @@ export default {
   },
 
   levels: {
-    b01: { title: "生死开关", tip: "score 够不够格，决定了走哪条路。" },
-    b02: { title: "奇偶分流", tip: "偶数走 if，奇数走 else。" },
-    b03: { title: "三岔路", tip: "elif 一条一条拦，最先成立的那个才走。" },
-    b04: { title: "门里有门", tip: "先判外面的 if，进了门再判里面的。" },
-    b05: { title: "加一把锁", tip: "and 要两个条件都成立才算 True。" },
-    b06: { title: "老路新走", tip: "嵌套 + 多分支混在一起，别走岔。" },
+    m01: { title: "碰壁右转", tip: "前方是墙就右转" },
+    m02: { title: "T 字路口", tip: "前方没路往左拐" },
+    m03: { title: "三岔路口", tip: "左边没路往前走" },
+    m04: { title: "穿过死胡同", tip: "见墙左转，贴着走" },
+    m05: { title: "九宫格", tip: "一路感测，别撞墙" },
   },
 };

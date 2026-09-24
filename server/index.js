@@ -67,13 +67,14 @@ const TraceRoom = makeProgressRoom({
   goal: (lv) => lv.steps.length,
 });
 
-/* 分支地牢：进度 = 走通几个岔口。goal = 本关岔口数（和客户端一致）。
+/* 分支地牢：进度 = 本关是否走通（0/1）。goal = 1（和客户端一致）。
    答案/地图在题库，服务器照例只守范围。 */
 const BranchRoom = makeProgressRoom({
   game: BRANCH,
   bank: "../games/branch-trace/levels.json",
-  keep: (lv) => lv && lv.map && Array.isArray(lv.map.regions) && lv.map.regions.length > 0,
-  goal: (lv) => (lv.map.regions || []).length,
+  keep: (lv) => lv && lv.map && Array.isArray(lv.map.rows) && lv.map.rows.length > 0 &&
+    Array.isArray(lv.blocks) && lv.blocks.length > 0,
+  goal: () => 1,
 });
 
 const PORT = Number(process.env.PORT || 2568);
