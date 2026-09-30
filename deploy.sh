@@ -121,7 +121,26 @@ for f in games/operator-sorter/html/deck.datatypes.json games/operator-sorter/ht
   code=$(curl -fsS -o /dev/null -w '%{http_code}' "http://127.0.0.1:$SITE_PORT/$f" || true)
   [ "$code" = "200" ] && echo "题库 /$f → 200" || echo "警告：/$f 返回 ${code:-连不上}（检查 vite.config.js 的 GAME_STATIC）"
 done
-ss -ltn | grep -q ":$ROOM_PORT " && echo "房间服务器在听 $ROOM_PORT" || echo "警告：$ROOM_PORT 上没有监听"
+# 房间服务器不会自己回来：面板那边"重启 pm2"只认它自己那几个 nuxt 进程，会把 game-rooms
+# 一起停掉却不重启（dump.pm2 里它的条目还会是坏的，resurrect 也救不回来）。之前它就这么
+# 静默挂了十几个小时，直到下一节课没人能进房间才发现 —— 所以这里顺手把它拉起来。
+if ss -ltn | grep -q ":$ROOM_PORT "; then
+  echo "房间服务器在听 $ROOM_PORT"
+else
+  echo "警告：$ROOM_PORT 上没有监听 —— 重新拉起 $PM2_APP"
+  if pm2 describe "$PM2_APP" >/dev/null 2>&1; then
+    pm2 restart "$PM2_APP"
+  else
+    pm2 start "$R/server/index.js" --name "$PM2_APP" --interpreter "$NODE_DIR/node"
+  fi
+  pm2 save
+  sleep 2
+  if ss -ltn | grep -q ":$ROOM_PORT "; then
+    echo "房间服务器已恢复（$ROOM_PORT）"
+  else
+    echo "警告：拉起后 $ROOM_PORT 仍未监听，需要人工查一下 pm2 logs $PM2_APP"
+  fi
+fi
 chunk=$(ls -t "$R/dist/assets/" 2>/dev/null | grep -m1 '^typing-.*\.js$' || true)
 [ -n "$chunk" ] && echo "构建产物：dist/assets/$chunk"
 echo "线上跑的提交：$(gitr --no-pager log --oneline -1)"
