@@ -197,7 +197,7 @@
     {
       "id": "l08",
       "left": "n = 7\nm = 3\ntotal = 0\nif n % 2 == 0:\n    print(\"even\")\nelse:\n    print(\"odd\")\nif n > m:\n    print(\"bigger\")\nelse:\n    print(\"smaller\")\nprint(\"n =\", n)\nprint(\"done\")",
-      "right": "n = \"7\"\nm = 3.0\ntotal = 0\nif n % 2 = 0:\nprint(\"even\")\nelse:\n    print(\"Odd\")\nif n > m\n    print(bigger)\nelse:\n    print(\"Smaller\")\nprint(\"n =\", n)\nprint(\"Done\")",
+      "right": "n = \"7\"\nm = 3.0\ntotal = 0\nif n % 2 = 0:\nprint(\"even\")\nelse:\n    print(\"Odd\")\nif n > m\n    print(bigger)\nelse:\n    print(\"Smaller\")\nprint(\"n =\", n)\nprint(\"done\")",
       "diffs": [
         {
           "panel": "right",
@@ -212,7 +212,7 @@
         {
           "panel": "right",
           "line": 4,
-          "find": "="
+          "find": "= 0"
         },
         {
           "panel": "right",
@@ -244,7 +244,7 @@
     {
       "id": "l09",
       "left": "score = 75\nname = \"Amy\"\ngrade = \"\"\nif score >= 90:\n    grade = \"A\"\nelif score >= 80:\n    grade = \"B\"\nelif score >= 60:\n    grade = \"C\"\nelse:\n    grade = \"D\"\nprint(name)\nprint(\"score:\", score)\nprint(\"grade:\", grade)\nprint(\"bye\")",
-      "right": "score = \"75\"\nname = \"amy\"\nGrade = \"\"\nif score >= 90\n    grade = \"A\"\nelse score >= 80:\nprint(\"B\")\nelif score >= 60:\n    grade = \"c\"\nelse:\n    grade = \"D\"\nprint(Name)\nprint(\"score:\", Score)\nprint(\"grade:\", grad)\nprint(\"bye\")",
+      "right": "score = \"75\"\nname = \"amy\"\nGrade = \"\"\nif score >= 90\n    grade = \"A\"\nelse score >= 80:\nprint(\"B\")\nelif score >= 60:\n    grade = \"c\"\nelse:\n    grade = \"D\"\nprint(Name)\nprint(\"score:\", Score)\nprint(\"grade:\", grade)\nprint(\"bye\")",
       "diffs": [
         {
           "panel": "right",
@@ -301,7 +301,7 @@
         {
           "panel": "right",
           "line": 1,
-          "find": "("
+          "find": "(1, 2, 3)"
         },
         {
           "panel": "right",

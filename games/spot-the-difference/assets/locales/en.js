@@ -73,6 +73,7 @@ export default {
     panelRight: "{dt} only supports panel=right",
     lineRange: "{dt}: line out of range ({line})",
     identicalLine: "{dt} sits on a line that is identical on both sides, so it is not a difference",
+    lineUnlisted: "{tag} line {line} differs on the right, but no spot covers it (clicking it only counts as a miss)",
     findEmpty: "{dt}: find must be a non-empty string",
     findMissing: "{dt}: {needle} is not on line {line} of the right panel",
     findAndAt: "{dt}: find and at cannot both be set",

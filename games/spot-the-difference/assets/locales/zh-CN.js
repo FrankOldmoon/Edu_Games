@@ -63,6 +63,7 @@ export default {
     panelRight: "{dt} 目前只支持 panel=right",
     lineRange: "{dt} 的 line 越界：{line}",
     identicalLine: "{dt} 所在的行左右完全相同，构不成不同点",
+    lineUnlisted: "{tag} 第 {line} 行左右不一样，但没有对应的不同点（玩家点它只会算错）",
     findEmpty: "{dt} 的 find 必须是非空字符串",
     findMissing: "{dt} 在右栏第 {line} 行找不到 {needle}",
     findAndAt: "{dt} 不能同时写 find 和 at",

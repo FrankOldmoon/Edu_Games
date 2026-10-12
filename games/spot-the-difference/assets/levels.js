@@ -70,6 +70,17 @@ export function validate(data) {
         throw new Error(t("errors.atValue", { dt: dt, value: JSON.stringify(d.at) }));
       }
     });
+
+    /* 右栏只要有一行和左栏不一样，就必须有对应的不同点。漏写的话，玩家会看到一个
+       "点了算错"的差异，那一关的「已找到 x / y」也永远数不上（l08 末行的 done/Done、
+       l09 的 grad 就是这么漏的）。两边都写全，才谈得上"代码和能点的不同点一致"。 */
+    const listed = {};
+    lv.diffs.forEach(function (d) { listed[d.line] = true; });
+    for (let i = 0; i < L.length; i++) {
+      if (L[i] !== R[i] && !listed[i + 1]) {
+        throw new Error(t("errors.lineUnlisted", { tag: tag, line: i + 1 }));
+      }
+    }
   });
   return data;
 }

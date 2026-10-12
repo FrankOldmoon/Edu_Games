@@ -124,6 +124,9 @@ and shows the dialog at once rather than leaving you waiting out three seconds o
 
 A diff points at a spot with either `find` (a substring of that line) or
 `at: "start" | "end"` — the latter catches a missing indent or a missing colon.
+Every line that differs on the right needs at least one diff: the loader refuses to start when
+one is missing, because a difference nobody can click can only ever be scored as a miss (the
+level's "found x / y" would never add up).
 
 The display text — level name, tip, hint and the note for each spot — is **not** in the
 data. It is looked up in the locale packs by level id (`levels.<id>.*`), so nothing has to
